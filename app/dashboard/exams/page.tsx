@@ -29,6 +29,9 @@ export default function ExamsPage() {
             examId={selectedExam.id}
             onUploadSuccess={() => setRefresh(prev => prev + 1)}
           />
+          <p className="text-sm">
+            Tip: select <strong>Admit Card</strong> document type before uploading admit card files.
+          </p>
 
           <ExamFiles
             examId={selectedExam.id}
