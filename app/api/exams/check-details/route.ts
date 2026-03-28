@@ -30,6 +30,8 @@ export async function POST(request: Request) {
     const updates: Record<string, unknown> = {
       detailsCheckedAt: FieldValue.serverTimestamp(),
       serpSnippets: result.snippets.slice(0, 5),
+      serpConfidence: result.confidence,
+      serpReasoning: result.reasoning,
       updatedAt: FieldValue.serverTimestamp(),
     }
 
@@ -49,12 +51,20 @@ export async function POST(request: Request) {
       eventType: "serp_date_found",
       payload: {
         detectedDate: result.detectedDate,
+        confidence: result.confidence,
+        reasoning: result.reasoning,
         snippets: result.snippets.slice(0, 5),
       },
       createdAt: FieldValue.serverTimestamp(),
     })
 
-    return json({ ok: true, detectedDate: result.detectedDate, snippets: result.snippets.slice(0, 5) })
+    return json({
+      ok: true,
+      detectedDate: result.detectedDate,
+      confidence: result.confidence,
+      reasoning: result.reasoning,
+      snippets: result.snippets.slice(0, 5),
+    })
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Server error"
     if (msg === "UNAUTHORIZED") return json({ error: "Unauthorized" }, 401)

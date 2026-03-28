@@ -77,6 +77,7 @@ export default function ExamFiles({ examId, refreshTrigger }: any) {
       {files.map((file) => (
         <div key={file.id} className="card card-pad-4">
           <h3 className="font-semibold">{file.title}</h3>
+          <p className="text-sm mt-2">Type: {file.docType || "other"}</p>
           <p className="text-sm mt-2">OCR: {file.ocrStatus || "not started"}</p>
           {file.extracted?.examDate && (
             <p className="text-sm">Detected date: {String(file.extracted.examDate)}</p>

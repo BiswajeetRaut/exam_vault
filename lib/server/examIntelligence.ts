@@ -6,6 +6,12 @@ export type ParsedExamData = {
   reasoning?: string
 }
 
+type SerpDateInference = {
+  detectedDate: string | null
+  confidence: number
+  reasoning: string
+}
+
 async function callOpenAIChat(messages: any[]) {
   const apiKey = process.env.OPENAI_API_KEY || process.env.EMBEDDING_API_KEY
   if (!apiKey) {
@@ -108,15 +114,79 @@ export async function fetchExamDatesFromSerp(query: string) {
     }
   }
 
-  const joined = snippets.join("\n")
-  const match = joined.match(/(20\d{2})[-\/.](0?[1-9]|1[0-2])[-\/.](0?[1-9]|[12]\d|3[01])/)
-  const detectedDate = match
-    ? `${match[1]}-${String(match[2]).padStart(2, "0")}-${String(match[3]).padStart(2, "0")}`
-    : null
+  const llmInference = await inferDateFromSerpSnippets(query, snippets)
+  const detectedDate = llmInference.detectedDate
 
   return {
     detectedDate,
+    confidence: llmInference.confidence,
+    reasoning: llmInference.reasoning,
     snippets,
     raw: data,
+  }
+}
+
+async function inferDateFromSerpSnippets(
+  query: string,
+  snippets: string[]
+): Promise<SerpDateInference> {
+  const joined = snippets.join("\n").slice(0, 20_000)
+  if (!joined.trim()) {
+    return { detectedDate: null, confidence: 0, reasoning: "No snippets returned." }
+  }
+
+  try {
+    const raw = await callOpenAIChat([
+      {
+        role: "user",
+        content:
+          "You are given SERP snippets about an exam. Extract the most likely exam date.\n" +
+          "Return strict JSON: {\"detectedDate\":\"YYYY-MM-DD or null\",\"confidence\":0-1,\"reasoning\":\"short\"}.\n" +
+          `Query: ${query}\n\nSnippets:\n${joined}`,
+      },
+    ])
+
+    const parsed = JSON.parse(extractJsonObject(raw))
+    const detectedDate =
+      typeof parsed?.detectedDate === "string" && parsed.detectedDate ? parsed.detectedDate : null
+    const confidence =
+      typeof parsed?.confidence === "number" && Number.isFinite(parsed.confidence)
+        ? Math.max(0, Math.min(1, parsed.confidence))
+        : 0
+    const reasoning = typeof parsed?.reasoning === "string" ? parsed.reasoning : "No reasoning."
+
+    return { detectedDate, confidence, reasoning }
+  } catch {
+    const regexMatch = joined.match(/(20\d{2})[-\/.](0?[1-9]|1[0-2])[-\/.](0?[1-9]|[12]\d|3[01])/)
+    const detectedDate = regexMatch
+      ? `${regexMatch[1]}-${String(regexMatch[2]).padStart(2, "0")}-${String(regexMatch[3]).padStart(2, "0")}`
+      : null
+    return {
+      detectedDate,
+      confidence: detectedDate ? 0.35 : 0,
+      reasoning: "Regex fallback applied.",
+    }
+  }
+}
+
+export async function refineExamSuggestionsWithLLM(query: string, suggestions: string[]) {
+  if (!suggestions.length) return []
+
+  try {
+    const raw = await callOpenAIChat([
+      {
+        role: "user",
+        content:
+          "Given a user query and candidate exam titles, return the best 6 exam name suggestions.\n" +
+          "Return strict JSON: {\"suggestions\": [\"...\"]}\n" +
+          `Query: ${query}\nCandidates:\n${suggestions.join("\n")}`,
+      },
+    ])
+
+    const parsed = JSON.parse(extractJsonObject(raw))
+    if (!Array.isArray(parsed?.suggestions)) return suggestions.slice(0, 6)
+    return parsed.suggestions.map((x: unknown) => String(x || "").trim()).filter(Boolean).slice(0, 6)
+  } catch {
+    return suggestions.slice(0, 6)
   }
 }

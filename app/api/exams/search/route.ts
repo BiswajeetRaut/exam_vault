@@ -1,4 +1,5 @@
 import { verifyBearerUid } from "@/lib/server/verifyRequestUser"
+import { refineExamSuggestionsWithLLM } from "@/lib/server/examIntelligence"
 
 export const runtime = "nodejs"
 
@@ -29,12 +30,14 @@ export async function GET(request: Request) {
       return json({ error: data?.error || "SERP lookup failed" }, 502)
     }
 
-    const suggestions = Array.isArray(data?.organic_results)
+    const rawSuggestions = Array.isArray(data?.organic_results)
       ? data.organic_results
           .map((x: any) => String(x?.title || "").trim())
           .filter(Boolean)
-          .slice(0, 6)
+          .slice(0, 10)
       : []
+
+    const suggestions = await refineExamSuggestionsWithLLM(q, rawSuggestions)
 
     return json({ suggestions })
   } catch (e: unknown) {

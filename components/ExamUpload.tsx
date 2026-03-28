@@ -7,9 +7,7 @@ import {
   collection,
   addDoc,
   doc,
-  getDoc,
-  updateDoc,
-  increment
+  updateDoc
 } from "firebase/firestore"
 import { useAuth } from "@/context/AuthContext"
 import { v4 as uuid } from "uuid"
@@ -20,6 +18,7 @@ export default function ExamUpload({ examId, onUploadSuccess }: any) {
 
   const [file, setFile] = useState<any>(null)
   const [title, setTitle] = useState("")
+  const [docType, setDocType] = useState("other")
   const [loading, setLoading] = useState(false)
 
   const handleUpload = async () => {
@@ -43,6 +42,7 @@ export default function ExamUpload({ examId, onUploadSuccess }: any) {
         userId: user.uid,
         examId,
         title,
+        docType,
         fileUrl: data.publicUrl,
         path: filePath,
         fileType: file.type || "",
@@ -51,8 +51,16 @@ export default function ExamUpload({ examId, onUploadSuccess }: any) {
         createdAt: new Date()
       })
 
+      if (docType === "admit_card" || docType === "application") {
+        await updateDoc(doc(db, "exams", examId), {
+          status: docType === "admit_card" ? "admit_card_received" : "applied",
+          updatedAt: new Date(),
+        })
+      }
+
       setFile(null)
       setTitle("")
+      setDocType("other")
 
       if (onUploadSuccess) onUploadSuccess()
 
@@ -74,6 +82,13 @@ export default function ExamUpload({ examId, onUploadSuccess }: any) {
         onChange={(e) => setTitle(e.target.value)}
         className="input"
       />
+
+      <select value={docType} onChange={(e) => setDocType(e.target.value)} className="input">
+        <option value="other">Other</option>
+        <option value="admit_card">Admit Card</option>
+        <option value="application">Application</option>
+        <option value="notification">Notification</option>
+      </select>
 
       <input
         type="file"

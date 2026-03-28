@@ -57,7 +57,8 @@ export async function POST(request: Request) {
       extractedChars: extractedText.length,
     })
 
-    if (file.examId && parsed.documentType && (parsed.examName || parsedDate)) {
+    const inferredDocType = parsed.documentType || file.docType
+    if (file.examId && inferredDocType && (parsed.examName || parsedDate || file.docType)) {
       const examRef = db.collection("exams").doc(file.examId)
       const updates: Record<string, unknown> = {
         updatedAt: FieldValue.serverTimestamp(),
@@ -66,9 +67,9 @@ export async function POST(request: Request) {
       if (parsed.examName) updates.name = parsed.examName
       if (parsedDate && !Number.isNaN(parsedDate.getTime())) updates.examDate = parsedDate
 
-      if (parsed.documentType === "admit_card") {
+      if (inferredDocType === "admit_card") {
         updates.status = "admit_card_received"
-      } else if (parsed.documentType === "application") {
+      } else if (inferredDocType === "application") {
         updates.status = "applied"
       }
 
@@ -78,7 +79,7 @@ export async function POST(request: Request) {
         userId: uid,
         examId: file.examId,
         eventType:
-          parsed.documentType === "admit_card" ? "admit_detected" : "applied_detected",
+          inferredDocType === "admit_card" ? "admit_detected" : "applied_detected",
         payload: parsed,
         createdAt: FieldValue.serverTimestamp(),
       })
