@@ -6,7 +6,8 @@ import { collection, getDocs, query, where } from "firebase/firestore"
 import { useAuth } from "@/context/AuthContext"
 import { useRouter } from "next/navigation"
 
-type NoteRow = { id: string; title?: string; summary?: string }
+type NoteRow = { id: string; title?: string; summary?: string; folderId?: string | null }
+type FolderRow = { id: string; name?: string; parentId?: string | null }
 type AttemptRow = {
   id: string
   quizId: string
@@ -21,10 +22,12 @@ export default function QuizzesPage() {
   const router = useRouter()
 
   const [notes, setNotes] = useState<NoteRow[]>([])
+  const [folders, setFolders] = useState<FolderRow[]>([])
   const [selected, setSelected] = useState<Record<string, boolean>>({})
   const [title, setTitle] = useState("")
   const [questionCount, setQuestionCount] = useState(10)
   const [designNotes, setDesignNotes] = useState("")
+  const [search, setSearch] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [history, setHistory] = useState<AttemptRow[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -48,6 +51,11 @@ export default function QuizzesPage() {
       const snap = await getDocs(q)
       const all = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as NoteRow[]
       setNotes(all.filter((n) => typeof n.summary === "string" && n.summary.trim()))
+
+      const folderQuery = query(collection(db, "note_folders"), where("userId", "==", user.uid))
+      const folderSnap = await getDocs(folderQuery)
+      const allFolders = folderSnap.docs.map((d) => ({ id: d.id, ...d.data() })) as FolderRow[]
+      setFolders(allFolders)
     }
 
     run()
@@ -57,19 +65,63 @@ export default function QuizzesPage() {
     if (!user) return
 
     const run = async () => {
-      const token = await auth.currentUser?.getIdToken()
-      if (!token) return
-
-      const res = await fetch("/api/quizzes/history", {
-        headers: { Authorization: `Bearer ${token}` },
+      const historyQuery = query(collection(db, "quiz_history"), where("userId", "==", user.uid))
+      const snap = await getDocs(historyQuery)
+      const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as any[]
+      rows.sort((a, b) => {
+        const ta = Number(a.createdAt?.seconds || 0)
+        const tb = Number(b.createdAt?.seconds || 0)
+        return tb - ta
       })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) return
-      setHistory(Array.isArray(data.attempts) ? data.attempts : [])
+
+      setHistory(
+        rows.map((r) => ({
+          id: r.id,
+          quizId: String(r.quizId || ""),
+          quizTitle: String(r.quizTitle || "Untitled quiz"),
+          correct: Number(r.correct || 0),
+          total: Number(r.total || 0),
+          percentage: Number(r.percentage || 0),
+        }))
+      )
     }
 
     run()
   }, [user])
+
+  const folderById = useMemo(
+    () =>
+      folders.reduce<Record<string, FolderRow>>((acc, f) => {
+        acc[f.id] = f
+        return acc
+      }, {}),
+    [folders]
+  )
+
+  const getFolderPath = (folderId?: string | null) => {
+    if (!folderId) return "Root"
+    const parts: string[] = []
+    let current: string | null | undefined = folderId
+    let guard = 0
+    while (current && guard < 20) {
+      const folder = folderById[current]
+      if (!folder) break
+      parts.unshift(folder.name || "Untitled folder")
+      current = folder.parentId
+      guard += 1
+    }
+    return parts.length ? parts.join(" / ") : "Root"
+  }
+
+  const filteredNotes = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return notes
+    return notes.filter((note) => {
+      const titleText = String(note.title || "").toLowerCase()
+      const pathText = getFolderPath(note.folderId).toLowerCase()
+      return titleText.includes(q) || pathText.includes(q)
+    })
+  }, [notes, search, folderById])
 
   const createQuiz = async () => {
     setError(null)
@@ -125,21 +177,34 @@ export default function QuizzesPage() {
         />
 
         <p className="mt-4 font-medium">Select notes</p>
+        <input
+          className="input mt-2"
+          placeholder="Search notes by title or folder path"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
         <div className="mt-2 flex-col-stack-sm">
-          {notes.length === 0 && <p className="text-sm">No notes with saved summaries yet.</p>}
-          {notes.map((note) => (
-            <label key={note.id} className="card card-pad-3" style={{ display: "flex", gap: 8 }}>
-              <input
-                type="checkbox"
-                checked={!!selected[note.id]}
-                onChange={(e) =>
-                  setSelected((prev) => ({ ...prev, [note.id]: e.target.checked }))
-                }
-              />
-              <span>{note.title || "Untitled"}</span>
+          {filteredNotes.length === 0 && <p className="text-sm">No notes with saved summaries yet.</p>}
+          {filteredNotes.map((note) => (
+            <label key={note.id} className="card card-pad-3" style={{ display: "block" }}>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={!!selected[note.id]}
+                  onChange={(e) =>
+                    setSelected((prev) => ({ ...prev, [note.id]: e.target.checked }))
+                  }
+                />
+                <span className="font-medium">{note.title || "Untitled"}</span>
+              </div>
+              <p className="text-sm mt-1">Folder: {getFolderPath(note.folderId)}</p>
             </label>
           ))}
         </div>
+
+        <p className="mt-4 text-sm">
+          Selected notes: <strong>{selectedIds.length}</strong>
+        </p>
 
         <p className="mt-4 font-medium">Question count</p>
         <div className="flex flex-gap-sm mt-2">

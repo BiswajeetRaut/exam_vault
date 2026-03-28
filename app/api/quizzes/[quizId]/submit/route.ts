@@ -62,6 +62,17 @@ export async function POST(
       createdAt: FieldValue.serverTimestamp(),
     })
 
+    await db.collection("quiz_history").add({
+      userId: uid,
+      quizId,
+      quizTitle: String(quiz.title || "Untitled quiz"),
+      correct,
+      total,
+      percentage,
+      attemptId: attemptRef.id,
+      createdAt: FieldValue.serverTimestamp(),
+    })
+
     return json({
       attemptId: attemptRef.id,
       score: { correct, total, percentage },

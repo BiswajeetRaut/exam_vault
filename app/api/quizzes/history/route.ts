@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     const db = getAdminDb()
 
     const attemptsSnap = await db
-      .collection("quiz_attempts")
+      .collection("quiz_history")
       .where("userId", "==", uid)
       .orderBy("createdAt", "desc")
       .limit(50)
@@ -22,11 +22,10 @@ export async function GET(request: Request) {
     const attempts = await Promise.all(
       attemptsSnap.docs.map(async (doc) => {
         const data = doc.data() as any
-        const quizSnap = await db.collection("quizzes").doc(data.quizId).get()
         return {
           id: doc.id,
           quizId: data.quizId,
-          quizTitle: quizSnap.exists ? (quizSnap.data() as any).title || "Untitled quiz" : "Deleted quiz",
+          quizTitle: data.quizTitle || "Untitled quiz",
           correct: data.correct,
           total: data.total,
           percentage: data.percentage,
