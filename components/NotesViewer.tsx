@@ -21,6 +21,7 @@ export default function NotesViewer({ note }: { note: { id: string; title?: stri
   const [indexing, setIndexing] = useState(false)
   const [indexingItemId, setIndexingItemId] = useState<string | null>(null)
   const [indexInfo, setIndexInfo] = useState<string>("")
+  const [noteRagIndexed, setNoteRagIndexed] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const hasYoutube = useMemo(
@@ -39,9 +40,11 @@ export default function NotesViewer({ note }: { note: { id: string; title?: stri
       const data = snap.data()
       const text = typeof data?.summary === "string" ? data.summary : ""
       const ragChunkCount = typeof data?.ragChunkCount === "number" ? data.ragChunkCount : 0
+      const ragIndexedAt = !!data?.ragIndexedAt
       setSummary(text)
       setSavedSummary(text)
       setIndexInfo(ragChunkCount > 0 ? `Indexed (${ragChunkCount} chunks)` : "")
+      setNoteRagIndexed(ragIndexedAt || ragChunkCount > 0)
     }
 
     loadNoteSummary()
@@ -101,6 +104,7 @@ export default function NotesViewer({ note }: { note: { id: string; title?: stri
       setSummary(data.summary)
       setSavedSummary(data.summary)
       setIndexInfo("")
+      setNoteRagIndexed(false)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Something went wrong")
     } finally {
@@ -154,6 +158,7 @@ export default function NotesViewer({ note }: { note: { id: string; title?: stri
 
       const chunkCount = typeof data.chunks === "number" ? data.chunks : 0
       setIndexInfo(`Indexed (${chunkCount} chunks)`)
+      setNoteRagIndexed(true)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Something went wrong")
     } finally {
@@ -251,9 +256,13 @@ export default function NotesViewer({ note }: { note: { id: string; title?: stri
                   type="button"
                   className="btn"
                   onClick={() => indexDriveItemToRag(item.id)}
-                  disabled={!user || indexingItemId === item.id}
+                  disabled={!user || indexingItemId === item.id || !!item.ragIndexedAt}
                 >
-                  {indexingItemId === item.id ? "Indexing file…" : "Store file to RAG"}
+                  {item.ragIndexedAt
+                    ? "File already in RAG"
+                    : indexingItemId === item.id
+                      ? "Indexing file…"
+                      : "Store file to RAG"}
                 </button>
               </div>
             </div>
@@ -319,9 +328,9 @@ export default function NotesViewer({ note }: { note: { id: string; title?: stri
             type="button"
             className="btn"
             onClick={indexToRag}
-            disabled={!user || indexing || !savedSummary.trim() || dirty}
+            disabled={!user || indexing || !savedSummary.trim() || dirty || noteRagIndexed}
           >
-            {indexing ? "Indexing…" : "Store to RAG"}
+            {noteRagIndexed ? "Already in RAG" : indexing ? "Indexing…" : "Store to RAG"}
           </button>
           {dirty && user && <span className="text-sm">Unsaved changes</span>}
           {!dirty && indexInfo && <span className="text-sm">{indexInfo}</span>}

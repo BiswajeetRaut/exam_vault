@@ -32,6 +32,9 @@ export async function POST(request: Request) {
     if (!note.userId || note.userId !== uid) {
       return json({ error: "Forbidden" }, 403)
     }
+    if (note.ragIndexedAt) {
+      return json({ error: "This note is already stored in RAG." }, 409)
+    }
 
     const summary = typeof note.summary === "string" ? note.summary.trim() : ""
     if (!summary) {

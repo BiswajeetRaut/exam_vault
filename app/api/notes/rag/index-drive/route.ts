@@ -110,6 +110,9 @@ export async function POST(request: Request) {
     if (item.noteId !== noteId || item.type !== "drive") {
       return json({ error: "Invalid drive note item" }, 400)
     }
+    if (item.ragIndexedAt) {
+      return json({ error: "This file is already stored in RAG." }, 409)
+    }
 
     const fileId = item?.content?.id
     if (!fileId || typeof fileId !== "string") {
