@@ -79,17 +79,28 @@ function extractJsonObject(text: string) {
 }
 
 export async function extractTextFromImageUrl(imageUrl: string) {
-  const content = await callOpenAIChat([
-    {
-      role: "user",
-      content: [
-        { type: "text", text: "Extract all readable text from this exam document image." },
-        { type: "image_url", image_url: { url: imageUrl } },
-      ],
-    },
-  ])
+  try {
+    const content = await callOpenAIChat([
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "Extract all readable text from this exam document image." },
+          { type: "image_url", image_url: { url: imageUrl } },
+        ],
+      },
+    ])
 
-  return content
+    if (content.trim().length >= 10) return content
+  } catch {
+    // Some remote storage URLs are not fetchable by OpenAI directly.
+  }
+
+  const imageResponse = await fetch(imageUrl, { cache: "no-store" })
+  if (!imageResponse.ok) throw new Error("Could not download exam image")
+
+  const contentType = imageResponse.headers.get("content-type")
+  const bytes = await imageResponse.arrayBuffer()
+  return extractTextFromImageBytes(bytes, contentType)
 }
 
 function normalizeImageMimeType(value: string | null) {
@@ -105,18 +116,36 @@ function toDataUrl(bytes: ArrayBuffer, mimeType: string) {
   return `data:${mimeType};base64,${base64}`
 }
 
+async function extractTextFromImageBytes(bytes: ArrayBuffer, fileType?: string | null) {
+  return callOpenAIResponses([
+    {
+      role: "user",
+      content: [
+        { type: "input_text", text: "Extract all readable text from this exam file image." },
+        {
+          type: "input_image",
+          image_url: toDataUrl(bytes, normalizeImageMimeType(fileType || null)),
+        },
+      ],
+    },
+  ])
+}
+
 export async function extractTextFromFileUrl(fileUrl: string, fileType?: string) {
   const lowerType = String(fileType || "").toLowerCase()
   const isImage =
     lowerType.startsWith("image/") || /\.(png|jpg|jpeg|webp|gif)(\?|$)/i.test(fileUrl)
-
-  if (isImage) return extractTextFromImageUrl(fileUrl)
 
   const fileResponse = await fetch(fileUrl, { cache: "no-store" })
   if (!fileResponse.ok) throw new Error("Could not download exam file")
 
   const bytes = await fileResponse.arrayBuffer()
   if (!bytes || bytes.byteLength === 0) throw new Error("Exam file is empty")
+
+  if (isImage) {
+    const detectedType = fileResponse.headers.get("content-type") || lowerType
+    return extractTextFromImageBytes(bytes, detectedType)
+  }
 
   if (lowerType.includes("pdf") || /\.pdf(\?|$)/i.test(fileUrl)) {
     return callOpenAIResponses([
@@ -137,18 +166,7 @@ export async function extractTextFromFileUrl(fileUrl: string, fileType?: string)
   const extractedMaybeText = Buffer.from(bytes).toString("utf8")
   if (/[a-zA-Z]{3,}/.test(extractedMaybeText)) return extractedMaybeText
 
-  return callOpenAIResponses([
-    {
-      role: "user",
-      content: [
-        { type: "input_text", text: "Extract all readable text from this exam file image." },
-        {
-          type: "input_image",
-          image_url: toDataUrl(bytes, normalizeImageMimeType(lowerType)),
-        },
-      ],
-    },
-  ])
+  return extractTextFromImageBytes(bytes, lowerType)
 }
 
 export async function parseExamDataFromText(text: string): Promise<ParsedExamData> {
