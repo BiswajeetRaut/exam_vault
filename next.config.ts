@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  serverExternalPackages: ["firebase-admin", "@distube/ytdl-core"],
 };
 
 export default nextConfig;

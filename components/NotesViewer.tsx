@@ -1,55 +1,159 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { db } from "@/lib/firebase"
+import { useEffect, useState, useMemo, useCallback } from "react"
+import { auth, db } from "@/lib/firebase"
 import { collection, query, where, getDocs } from "firebase/firestore"
-import { deleteDoc, doc } from "firebase/firestore"
+import { deleteDoc, doc, getDoc } from "firebase/firestore"
 import { getAccessToken } from "@/lib/googleGIS"
 import { deleteFromDrive } from "@/lib/deleteFromDrive"
-export default function NotesViewer({ note }: any) {
+import { useAuth } from "@/context/AuthContext"
+import { getYoutubeEmbedUrl } from "@/lib/youtubeVideoId"
 
-  const [items, setItems] = useState<any[]>([])
+type ItemRow = { id: string; type?: string; content?: any }
+
+export default function NotesViewer({ note }: { note: { id: string; title?: string } }) {
+
+  const { user } = useAuth()
+  const [items, setItems] = useState<ItemRow[]>([])
   const [summary, setSummary] = useState("")
+  const [savedSummary, setSavedSummary] = useState("")
+  const [generating, setGenerating] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const hasYoutube = useMemo(
+    () => items.some((i) => i.type === "youtube" && i.content),
+    [items]
+  )
+
+  const dirty = summary !== savedSummary
+
+  const getYouTubeEmbed = (url: string) => {
+    try {
+      const regExp = /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&]+)/
+      const match = url.match(regExp)
+      return match ? `https://www.youtube.com/embed/${match[1]}` : ""
+    } catch {
+      return ""
+    }
+  }
 
   useEffect(() => {
-    const fetchItems = async () => {
+    let cancelled = false
 
+    const loadNoteSummary = async () => {
+      const snap = await getDoc(doc(db, "notes", note.id))
+      if (cancelled || !snap.exists()) return
+      const text = typeof snap.data()?.summary === "string" ? snap.data()!.summary : ""
+      setSummary(text)
+      setSavedSummary(text)
+    }
+
+    loadNoteSummary()
+    return () => {
+      cancelled = true
+    }
+  }, [note.id])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const fetchItems = async () => {
       const q = query(
         collection(db, "note_items"),
         where("noteId", "==", note.id)
       )
-
       const snapshot = await getDocs(q)
-
-      setItems(snapshot.docs.map(doc => doc.data()))
+      if (cancelled) return
+      setItems(
+        snapshot.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+        })) as ItemRow[]
+      )
     }
 
     fetchItems()
-  }, [note])
+    return () => {
+      cancelled = true
+    }
+  }, [note.id])
 
-  const getYouTubeEmbed = (url: string) => {
+  const authHeader = useCallback(async () => {
+    const u = auth.currentUser
+    if (!u) throw new Error("Not signed in")
+    const token = await u.getIdToken()
+    return { Authorization: `Bearer ${token}` }
+  }, [])
+
+  const generateSummary = async () => {
+    setError(null)
+    setGenerating(true)
     try {
-      const regExp = /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&]+)/;
-      const match = url.match(regExp);
-      return match ? `https://www.youtube.com/embed/${match[1]}` : "";
-    } catch {
-      return "";
+      const headers = await authHeader()
+      const res = await fetch("/api/notes/summarize", {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ noteId: note.id }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(data.error || "Summary failed")
+      }
+      if (typeof data.summary !== "string") {
+        throw new Error("Invalid response")
+      }
+      setSummary(data.summary)
+      setSavedSummary(data.summary)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Something went wrong")
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  const saveSummary = async () => {
+    setError(null)
+    setSaving(true)
+    try {
+      const headers = await authHeader()
+      const res = await fetch("/api/notes/summary", {
+        method: "PATCH",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ noteId: note.id, summary }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(data.error || "Save failed")
+      }
+      setSavedSummary(summary)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Something went wrong")
+    } finally {
+      setSaving(false)
     }
   }
 
   return (
-    <div>
-
+    <div className="mt-6">
       <h1 className="title">{note.title}</h1>
 
-      {items.map((item, i) => {
-
+      {items.map((item) => {
         if (item.type === "youtube") {
+          const embed = getYoutubeEmbedUrl(String(item.content || ""))
+          if (!embed) return null
           return (
             <iframe
-              key={i}
+              key={item.id}
               className="video"
-              src={getYouTubeEmbed(item.content)}
+              src={embed}
+              title="YouTube"
               allowFullScreen
             />
           )
@@ -57,45 +161,36 @@ export default function NotesViewer({ note }: any) {
 
         if (item.type === "drive") {
           return (
-            <div key={i} className="card card-pad-4 mt-4">
-              <p className="font-medium">{item.content.name}</p>
+            <div key={item.id} className="card card-pad-4 mt-4">
+              <p className="font-medium">{item.content?.name}</p>
               <div className="flex-between mt-4">
                 <a
-                  href={item.content.url}
+                  href={item.content?.url}
                   target="_blank"
                   rel="noreferrer"
                   className="link-accent text-sm"
                 >
                   Open
                 </a>
-        
                 <button
                   type="button"
                   className="btn btn-danger"
                   onClick={async () => {
-        
                     try {
                       const token = await getAccessToken()
-        
                       await deleteFromDrive(item.content.id, token)
-        
                       await deleteDoc(doc(db, "note_items", item.id))
-        
                       alert("Deleted")
-        
                       location.reload()
-        
                     } catch (err) {
                       console.error(err)
                       alert("Delete failed")
                     }
-        
                   }}
                 >
                   Delete
                 </button>
               </div>
-        
             </div>
           )
         }
@@ -103,7 +198,7 @@ export default function NotesViewer({ note }: any) {
         if (item.type === "link") {
           return (
             <a
-              key={i}
+              key={item.id}
               href={item.content}
               target="_blank"
               rel="noreferrer"
@@ -118,23 +213,55 @@ export default function NotesViewer({ note }: any) {
         return null
       })}
 
-      {/* AI Notes */}
       <div className="card card-pad-4 mt-6">
-        <h2 className="section-title mb-4">AI notes</h2>
-        {summary ? (
-          <textarea
-            className="input"
-            value={summary}
-            onChange={(e) => setSummary(e.target.value)}
-            rows={6}
-          />
-        ) : (
-          <button type="button" className="btn btn-primary">
-            Generate summary
-          </button>
-        )}
-      </div>
+        <h2 className="section-title mb-4">Study notes</h2>
 
+        {!user && (
+          <p className="notes-hint">Sign in to generate and save AI notes.</p>
+        )}
+
+        {user && !hasYoutube && (
+          <p className="notes-hint">
+            Add a YouTube link to this note (when creating it) to generate structured notes from
+            captions. You can still type or paste notes below and save them.
+          </p>
+        )}
+
+        {error && <p className="notes-error">{error}</p>}
+
+        <textarea
+          className="textarea-notes"
+          value={summary}
+          onChange={(e) => setSummary(e.target.value)}
+          placeholder="AI-generated notes appear here. Edit freely, then save."
+          disabled={!user}
+          spellCheck
+        />
+
+        <div className="notes-actions">
+          {hasYoutube && (
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={generateSummary}
+              disabled={!user || generating}
+            >
+              {generating ? "Generating…" : "Generate from YouTube"}
+            </button>
+          )}
+          <button
+            type="button"
+            className="btn"
+            onClick={saveSummary}
+            disabled={!user || saving || !dirty}
+          >
+            {saving ? "Saving…" : "Save notes"}
+          </button>
+          {dirty && user && (
+            <span className="text-sm">Unsaved changes</span>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

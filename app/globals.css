@@ -542,3 +542,44 @@ a.btn {
   color: var(--nv-text-muted);
   font-size: 14px;
 }
+
+.textarea-notes {
+  width: 100%;
+  min-height: 280px;
+  resize: vertical;
+  padding: 12px 14px;
+  border-radius: var(--nv-radius);
+  border: 1px solid var(--nv-border);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--nv-text);
+  background: var(--nv-surface);
+  margin-bottom: 12px;
+}
+
+.textarea-notes:focus {
+  outline: none;
+  border-color: rgba(55, 53, 47, 0.25);
+  box-shadow: 0 0 0 2px rgba(55, 53, 47, 0.06);
+}
+
+.notes-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.notes-hint {
+  font-size: 13px;
+  color: var(--nv-text-muted);
+  margin-bottom: 12px;
+}
+
+.notes-error {
+  font-size: 13px;
+  color: #b42318;
+  margin-bottom: 10px;
+}
