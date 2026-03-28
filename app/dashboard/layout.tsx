@@ -26,6 +26,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         <div className="sidebar-brand">Exam Vault</div>
         {navLink("/dashboard", "Dashboard")}
         {navLink("/dashboard/notes", "Notes")}
+        {navLink("/dashboard/quizzes", "Quizzes")}
         {navLink("/dashboard/personal", "Personal")}
         {navLink("/dashboard/exams", "Exams")}
       </aside>

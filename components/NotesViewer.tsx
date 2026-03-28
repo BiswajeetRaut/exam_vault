@@ -19,6 +19,7 @@ export default function NotesViewer({ note }: { note: { id: string; title?: stri
   const [generating, setGenerating] = useState(false)
   const [saving, setSaving] = useState(false)
   const [indexing, setIndexing] = useState(false)
+  const [indexingItemId, setIndexingItemId] = useState<string | null>(null)
   const [indexInfo, setIndexInfo] = useState<string>("")
   const [error, setError] = useState<string | null>(null)
 
@@ -160,6 +161,40 @@ export default function NotesViewer({ note }: { note: { id: string; title?: stri
     }
   }
 
+  const indexDriveItemToRag = async (itemId: string) => {
+    setError(null)
+    setIndexingItemId(itemId)
+    try {
+      const headers = await authHeader()
+      const driveAccessToken = await getAccessToken()
+
+      const res = await fetch("/api/notes/rag/index-drive", {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          noteId: note.id,
+          noteItemId: itemId,
+          driveAccessToken,
+        }),
+      })
+
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(data.error || "Drive RAG indexing failed")
+      }
+
+      const chunkCount = typeof data.chunks === "number" ? data.chunks : 0
+      setIndexInfo(`${data.fileName || "File"} indexed (${chunkCount} chunks)`)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Something went wrong")
+    } finally {
+      setIndexingItemId(null)
+    }
+  }
+
   return (
     <div className="mt-6">
       <h1 className="title">{note.title}</h1>
@@ -209,6 +244,16 @@ export default function NotesViewer({ note }: { note: { id: string; title?: stri
                   }}
                 >
                   Delete
+                </button>
+              </div>
+              <div className="mt-3">
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => indexDriveItemToRag(item.id)}
+                  disabled={!user || indexingItemId === item.id}
+                >
+                  {indexingItemId === item.id ? "Indexing file…" : "Store file to RAG"}
                 </button>
               </div>
             </div>
