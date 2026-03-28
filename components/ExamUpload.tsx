@@ -74,21 +74,38 @@ export default function ExamUpload({ examId, onUploadSuccess }: any) {
 
   return (
     <div className="card card-pad-4 flex-col-stack-sm">
+      <p className="text-sm font-medium">Document type</p>
+      <div className="flex flex-gap-sm">
+        {[
+          { key: "admit_card", label: "Admit Card" },
+          { key: "application", label: "Application" },
+          { key: "notification", label: "Notification" },
+          { key: "other", label: "Other" },
+        ].map((option) => (
+          <button
+            key={option.key}
+            type="button"
+            className={`btn ${docType === option.key ? "btn-primary" : ""}`}
+            onClick={() => setDocType(option.key)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
 
       <input
         type="text"
-        placeholder="File title (Admit Card)"
+        placeholder={
+          docType === "admit_card"
+            ? "File title (Admit Card)"
+            : docType === "application"
+              ? "File title (Application Proof)"
+              : "File title"
+        }
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         className="input"
       />
-
-      <select value={docType} onChange={(e) => setDocType(e.target.value)} className="input">
-        <option value="other">Other</option>
-        <option value="admit_card">Admit Card</option>
-        <option value="application">Application</option>
-        <option value="notification">Notification</option>
-      </select>
 
       <input
         type="file"
