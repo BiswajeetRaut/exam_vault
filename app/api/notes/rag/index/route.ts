@@ -2,7 +2,7 @@ import { FieldValue } from "firebase-admin/firestore"
 import { getAdminDb } from "@/lib/server/firebaseAdmin"
 import { verifyBearerUid } from "@/lib/server/verifyRequestUser"
 import { embedTextChunks } from "@/lib/server/embedding"
-import { getSupabaseAdminClient } from "@/lib/server/supabaseAdmin"
+import { upsertPineconeVectors } from "@/lib/server/pinecone"
 
 export const runtime = "nodejs"
 
@@ -40,42 +40,36 @@ export async function POST(request: Request) {
 
     const chunks = await embedTextChunks(summary)
 
-    const supabase = getSupabaseAdminClient()
-
-    const payload = chunks.map((chunk) => ({
-      user_id: uid,
-      note_id: noteId,
-      folder_id: note.folderId || null,
-      chunk_index: chunk.chunkIndex,
-      content: chunk.content,
-      embedding: chunk.embedding,
+    const vectors = chunks.map((chunk) => ({
+      id: `${uid}:${noteId}:${chunk.chunkIndex}`,
+      values: chunk.embedding,
       metadata: {
+        userId: uid,
+        noteId,
+        folderId: note.folderId || "",
+        chunkIndex: chunk.chunkIndex,
+        content: chunk.content,
         source: "note_summary",
         title: typeof note.title === "string" ? note.title : "",
       },
     }))
 
-    const { error } = await supabase.from("note_embeddings").upsert(payload, {
-      onConflict: "note_id,chunk_index",
-    })
-
-    if (error) {
-      throw new Error(error.message)
-    }
+    await upsertPineconeVectors(vectors)
 
     await noteRef.update({
       ragIndexedAt: FieldValue.serverTimestamp(),
-      ragChunkCount: payload.length,
+      ragChunkCount: vectors.length,
+      ragProvider: "pinecone",
     })
 
-    return json({ ok: true, chunks: payload.length })
+    return json({ ok: true, chunks: vectors.length, provider: "pinecone" })
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Server error"
     if (msg === "UNAUTHORIZED") {
       return json({ error: "Unauthorized" }, 401)
     }
-    if (msg.includes("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY")) {
-      return json({ error: "Server misconfiguration: Supabase service role" }, 503)
+    if (msg.includes("PINECONE_API_KEY and PINECONE_INDEX_HOST")) {
+      return json({ error: "Server misconfiguration: Pinecone credentials" }, 503)
     }
     if (msg.includes("OPENAI_API_KEY") || msg.includes("EMBEDDING_API_KEY")) {
       return json({ error: "Server misconfiguration: embedding API key" }, 503)

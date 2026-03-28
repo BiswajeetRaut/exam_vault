@@ -65,5 +65,5 @@
 ## 10) Data model additions
 - `notes`: summary, summary metadata, rag index metadata, revision metadata.
 - `note_items`: source artifacts and extraction status.
-- `note_embeddings` (vector db): embedding rows per chunk.
+- `pinecone notes namespace` (vector db): embedding rows per chunk (or equivalent vector index).
 - `quiz_attempts`, `quiz_questions`, `question_threads` for assessment + tutoring.
