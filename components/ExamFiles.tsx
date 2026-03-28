@@ -45,6 +45,19 @@ export default function ExamFiles({ examId, refreshTrigger }: any) {
     fetchFiles()
   }
 
+  const blobToBase64 = async (blob: Blob) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        const value = String(reader.result || "")
+        const comma = value.indexOf(",")
+        if (comma < 0) return reject(new Error("Could not encode exam file"))
+        resolve(value.slice(comma + 1))
+      }
+      reader.onerror = () => reject(new Error("Could not encode exam file"))
+      reader.readAsDataURL(blob)
+    })
+
   const extractDetails = async (file: any) => {
     setError(null)
     setWorkingId(file.id)
@@ -52,15 +65,38 @@ export default function ExamFiles({ examId, refreshTrigger }: any) {
       const token = await auth.currentUser?.getIdToken()
       if (!token) throw new Error("Not signed in")
 
-      const res = await fetch("/api/exams/files/extract", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ examFileId: file.id }),
-      })
-      const data = await res.json().catch(() => ({}))
+      const runExtract = async (payload: Record<string, unknown>) =>
+        fetch("/api/exams/files/extract", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        })
+
+      let res = await runExtract({ examFileId: file.id })
+      let data = await res.json().catch(() => ({}))
+
+      const shouldRetryWithClientBytes =
+        !res.ok &&
+        typeof data?.error === "string" &&
+        data.error.includes("Could not reach file host from server")
+
+      if (shouldRetryWithClientBytes) {
+        const fileRes = await fetch(file.fileUrl, { cache: "no-store" })
+        if (!fileRes.ok) throw new Error("Could not download exam file in browser")
+        const blob = await fileRes.blob()
+        const fileDataBase64 = await blobToBase64(blob)
+
+        res = await runExtract({
+          examFileId: file.id,
+          fileDataBase64,
+          fileType: blob.type || file.fileType || "",
+        })
+        data = await res.json().catch(() => ({}))
+      }
+
       if (!res.ok) throw new Error(data.error || "Could not extract details")
 
       await fetchFiles()

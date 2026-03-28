@@ -116,6 +116,10 @@ function toDataUrl(bytes: ArrayBuffer, mimeType: string) {
   return `data:${mimeType};base64,${base64}`
 }
 
+function toUtf8Text(bytes: ArrayBuffer) {
+  return Buffer.from(bytes).toString("utf8")
+}
+
 async function extractTextFromImageBytes(bytes: ArrayBuffer, fileType?: string | null) {
   return callOpenAIResponses([
     {
@@ -131,23 +135,17 @@ async function extractTextFromImageBytes(bytes: ArrayBuffer, fileType?: string |
   ])
 }
 
-export async function extractTextFromFileUrl(fileUrl: string, fileType?: string) {
+export async function extractTextFromFileBytes(bytes: ArrayBuffer, fileType?: string) {
   const lowerType = String(fileType || "").toLowerCase()
   const isImage =
-    lowerType.startsWith("image/") || /\.(png|jpg|jpeg|webp|gif)(\?|$)/i.test(fileUrl)
-
-  const fileResponse = await fetch(fileUrl, { cache: "no-store" })
-  if (!fileResponse.ok) throw new Error("Could not download exam file")
-
-  const bytes = await fileResponse.arrayBuffer()
+    lowerType.startsWith("image/") || /\.(png|jpg|jpeg|webp|gif)(\?|$)/i.test(lowerType)
   if (!bytes || bytes.byteLength === 0) throw new Error("Exam file is empty")
 
   if (isImage) {
-    const detectedType = fileResponse.headers.get("content-type") || lowerType
-    return extractTextFromImageBytes(bytes, detectedType)
+    return extractTextFromImageBytes(bytes, lowerType)
   }
 
-  if (lowerType.includes("pdf") || /\.pdf(\?|$)/i.test(fileUrl)) {
+  if (lowerType.includes("pdf")) {
     return callOpenAIResponses([
       {
         role: "user",
@@ -163,10 +161,32 @@ export async function extractTextFromFileUrl(fileUrl: string, fileType?: string)
     ])
   }
 
-  const extractedMaybeText = Buffer.from(bytes).toString("utf8")
+  const extractedMaybeText = toUtf8Text(bytes)
   if (/[a-zA-Z]{3,}/.test(extractedMaybeText)) return extractedMaybeText
 
   return extractTextFromImageBytes(bytes, lowerType)
+}
+
+export async function extractTextFromFileUrl(fileUrl: string, fileType?: string) {
+  try {
+    const fileResponse = await fetch(fileUrl, { cache: "no-store" })
+    if (!fileResponse.ok) throw new Error("Could not download exam file")
+
+    const bytes = await fileResponse.arrayBuffer()
+    const detectedType = fileResponse.headers.get("content-type") || fileType || ""
+
+    return extractTextFromFileBytes(bytes, detectedType)
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "Could not download exam file"
+    if (
+      msg.includes("ENOTFOUND") ||
+      msg.includes("getaddrinfo") ||
+      msg.includes("fetch failed")
+    ) {
+      throw new Error("Could not reach file host from server. Retry with client-uploaded bytes.")
+    }
+    throw error
+  }
 }
 
 export async function parseExamDataFromText(text: string): Promise<ParsedExamData> {

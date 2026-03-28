@@ -1,7 +1,11 @@
 import { FieldValue } from "firebase-admin/firestore"
 import { getAdminDb } from "@/lib/server/firebaseAdmin"
 import { verifyBearerUid } from "@/lib/server/verifyRequestUser"
-import { extractTextFromFileUrl, parseExamDataFromText } from "@/lib/server/examIntelligence"
+import {
+  extractTextFromFileBytes,
+  extractTextFromFileUrl,
+  parseExamDataFromText,
+} from "@/lib/server/examIntelligence"
 
 export const runtime = "nodejs"
 
@@ -15,6 +19,8 @@ export async function POST(request: Request) {
     const uid = await verifyBearerUid(request)
     const body = await request.json().catch(() => null)
     const examFileId = typeof body?.examFileId === "string" ? body.examFileId : null
+    const fileDataBase64 = typeof body?.fileDataBase64 === "string" ? body.fileDataBase64 : null
+    const clientFileType = typeof body?.fileType === "string" ? body.fileType : null
 
     if (!examFileId) {
       return json({ error: "examFileId is required" }, 400)
@@ -39,7 +45,12 @@ export async function POST(request: Request) {
       { merge: true }
     )
 
-    const extractedText = await extractTextFromFileUrl(fileUrl, String(file.fileType || ""))
+    const extractedText = fileDataBase64
+      ? await extractTextFromFileBytes(
+          Buffer.from(fileDataBase64, "base64"),
+          clientFileType || String(file.fileType || "")
+        )
+      : await extractTextFromFileUrl(fileUrl, String(file.fileType || ""))
 
     if (!extractedText || extractedText.trim().length < 20) {
       return json({ error: "Could not extract enough text from file" }, 422)
@@ -101,6 +112,9 @@ export async function POST(request: Request) {
     if (msg === "UNAUTHORIZED") return json({ error: "Unauthorized" }, 401)
     if (msg.includes("OPENAI_API_KEY") || msg.includes("EMBEDDING_API_KEY")) {
       return json({ error: "Server misconfiguration: OpenAI key" }, 503)
+    }
+    if (msg.includes("Could not reach file host from server")) {
+      return json({ error: msg }, 503)
     }
     console.error("exam file extract:", e)
     return json({ error: msg }, 500)
