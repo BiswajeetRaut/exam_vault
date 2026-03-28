@@ -12,13 +12,16 @@ import { getYoutubeEmbedUrl } from "@/lib/youtubeVideoId"
 type ItemRow = { id: string; type?: string; content?: any }
 
 export default function NotesViewer({ note }: { note: { id: string; title?: string } }) {
-
   const { user } = useAuth()
   const [items, setItems] = useState<ItemRow[]>([])
   const [summary, setSummary] = useState("")
   const [savedSummary, setSavedSummary] = useState("")
   const [generating, setGenerating] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [indexing, setIndexing] = useState(false)
+  const [indexingItemId, setIndexingItemId] = useState<string | null>(null)
+  const [indexInfo, setIndexInfo] = useState<string>("")
+  const [noteRagIndexed, setNoteRagIndexed] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const hasYoutube = useMemo(
@@ -28,25 +31,20 @@ export default function NotesViewer({ note }: { note: { id: string; title?: stri
 
   const dirty = summary !== savedSummary
 
-  const getYouTubeEmbed = (url: string) => {
-    try {
-      const regExp = /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&]+)/
-      const match = url.match(regExp)
-      return match ? `https://www.youtube.com/embed/${match[1]}` : ""
-    } catch {
-      return ""
-    }
-  }
-
   useEffect(() => {
     let cancelled = false
 
     const loadNoteSummary = async () => {
       const snap = await getDoc(doc(db, "notes", note.id))
       if (cancelled || !snap.exists()) return
-      const text = typeof snap.data()?.summary === "string" ? snap.data()!.summary : ""
+      const data = snap.data()
+      const text = typeof data?.summary === "string" ? data.summary : ""
+      const ragChunkCount = typeof data?.ragChunkCount === "number" ? data.ragChunkCount : 0
+      const ragIndexedAt = !!data?.ragIndexedAt
       setSummary(text)
       setSavedSummary(text)
+      setIndexInfo(ragChunkCount > 0 ? `Indexed (${ragChunkCount} chunks)` : "")
+      setNoteRagIndexed(ragIndexedAt || ragChunkCount > 0)
     }
 
     loadNoteSummary()
@@ -59,10 +57,7 @@ export default function NotesViewer({ note }: { note: { id: string; title?: stri
     let cancelled = false
 
     const fetchItems = async () => {
-      const q = query(
-        collection(db, "note_items"),
-        where("noteId", "==", note.id)
-      )
+      const q = query(collection(db, "note_items"), where("noteId", "==", note.id))
       const snapshot = await getDocs(q)
       if (cancelled) return
       setItems(
@@ -108,6 +103,8 @@ export default function NotesViewer({ note }: { note: { id: string; title?: stri
       }
       setSummary(data.summary)
       setSavedSummary(data.summary)
+      setIndexInfo("")
+      setNoteRagIndexed(false)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Something went wrong")
     } finally {
@@ -137,6 +134,69 @@ export default function NotesViewer({ note }: { note: { id: string; title?: stri
       setError(e instanceof Error ? e.message : "Something went wrong")
     } finally {
       setSaving(false)
+    }
+  }
+
+  const indexToRag = async () => {
+    setError(null)
+    setIndexing(true)
+    try {
+      const headers = await authHeader()
+      const res = await fetch("/api/notes/rag/index", {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ noteId: note.id }),
+      })
+
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(data.error || "RAG indexing failed")
+      }
+
+      const chunkCount = typeof data.chunks === "number" ? data.chunks : 0
+      setIndexInfo(`Indexed (${chunkCount} chunks)`)
+      setNoteRagIndexed(true)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Something went wrong")
+    } finally {
+      setIndexing(false)
+    }
+  }
+
+  const indexDriveItemToRag = async (itemId: string) => {
+    setError(null)
+    setIndexingItemId(itemId)
+    try {
+      const headers = await authHeader()
+      const driveAccessToken = await getAccessToken()
+
+      const res = await fetch("/api/notes/rag/index-drive", {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          noteId: note.id,
+          noteItemId: itemId,
+          driveAccessToken,
+        }),
+      })
+
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(data.error || "Drive RAG indexing failed")
+      }
+
+      const chunkCount = typeof data.chunks === "number" ? data.chunks : 0
+      setIndexInfo(`${data.fileName || "File"} indexed (${chunkCount} chunks)`)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Something went wrong")
+    } finally {
+      setIndexingItemId(null)
     }
   }
 
@@ -191,6 +251,20 @@ export default function NotesViewer({ note }: { note: { id: string; title?: stri
                   Delete
                 </button>
               </div>
+              <div className="mt-3">
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => indexDriveItemToRag(item.id)}
+                  disabled={!user || indexingItemId === item.id || !!item.ragIndexedAt}
+                >
+                  {item.ragIndexedAt
+                    ? "File already in RAG"
+                    : indexingItemId === item.id
+                      ? "Indexing file…"
+                      : "Store file to RAG"}
+                </button>
+              </div>
             </div>
           )
         }
@@ -216,9 +290,7 @@ export default function NotesViewer({ note }: { note: { id: string; title?: stri
       <div className="card card-pad-4 mt-6">
         <h2 className="section-title mb-4">Study notes</h2>
 
-        {!user && (
-          <p className="notes-hint">Sign in to generate and save AI notes.</p>
-        )}
+        {!user && <p className="notes-hint">Sign in to generate and save AI notes.</p>}
 
         {user && !hasYoutube && (
           <p className="notes-hint">
@@ -249,17 +321,19 @@ export default function NotesViewer({ note }: { note: { id: string; title?: stri
               {generating ? "Generating…" : "Generate from YouTube"}
             </button>
           )}
+          <button type="button" className="btn" onClick={saveSummary} disabled={!user || saving || !dirty}>
+            {saving ? "Saving…" : "Save notes"}
+          </button>
           <button
             type="button"
             className="btn"
-            onClick={saveSummary}
-            disabled={!user || saving || !dirty}
+            onClick={indexToRag}
+            disabled={!user || indexing || !savedSummary.trim() || dirty || noteRagIndexed}
           >
-            {saving ? "Saving…" : "Save notes"}
+            {noteRagIndexed ? "Already in RAG" : indexing ? "Indexing…" : "Store to RAG"}
           </button>
-          {dirty && user && (
-            <span className="text-sm">Unsaved changes</span>
-          )}
+          {dirty && user && <span className="text-sm">Unsaved changes</span>}
+          {!dirty && indexInfo && <span className="text-sm">{indexInfo}</span>}
         </div>
       </div>
     </div>

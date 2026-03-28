@@ -45,6 +45,8 @@ export default function ExamUpload({ examId, onUploadSuccess }: any) {
         title,
         fileUrl: data.publicUrl,
         path: filePath,
+        fileType: file.type || "",
+        ocrStatus: "pending",
         size: file.size,
         createdAt: new Date()
       })
