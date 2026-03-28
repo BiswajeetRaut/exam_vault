@@ -1,6 +1,9 @@
 import { chunkTextByChars } from "@/lib/server/textChunking"
 
 const DEFAULT_EMBEDDING_MODEL = process.env.EMBEDDING_MODEL || "text-embedding-3-small"
+const EMBEDDING_DIMENSIONS = process.env.EMBEDDING_DIMENSIONS
+  ? Number(process.env.EMBEDDING_DIMENSIONS)
+  : undefined
 
 export type EmbeddingChunk = {
   chunkIndex: number
@@ -31,6 +34,7 @@ async function fetchEmbedding(input: string): Promise<number[]> {
     body: JSON.stringify({
       model: DEFAULT_EMBEDDING_MODEL,
       input,
+      ...(EMBEDDING_DIMENSIONS ? { dimensions: EMBEDDING_DIMENSIONS } : {}),
     }),
   })
 
@@ -43,6 +47,12 @@ async function fetchEmbedding(input: string): Promise<number[]> {
   const embedding = data?.data?.[0]?.embedding
   if (!Array.isArray(embedding) || !embedding.length) {
     throw new Error("Embedding API returned invalid vector")
+  }
+
+  if (EMBEDDING_DIMENSIONS && embedding.length !== EMBEDDING_DIMENSIONS) {
+    throw new Error(
+      `Embedding dimensions mismatch: expected ${EMBEDDING_DIMENSIONS}, got ${embedding.length}`
+    )
   }
 
   return embedding as number[]

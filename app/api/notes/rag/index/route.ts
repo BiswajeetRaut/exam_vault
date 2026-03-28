@@ -74,6 +74,15 @@ export async function POST(request: Request) {
     if (msg.includes("OPENAI_API_KEY") || msg.includes("EMBEDDING_API_KEY")) {
       return json({ error: "Server misconfiguration: embedding API key" }, 503)
     }
+    if (msg.includes("Embedding dimensions mismatch")) {
+      return json(
+        {
+          error:
+            `${msg}. Set EMBEDDING_DIMENSIONS to match your Pinecone index dimension.`,
+        },
+        400
+      )
+    }
     console.error("notes rag index:", e)
     return json({ error: msg }, 500)
   }
