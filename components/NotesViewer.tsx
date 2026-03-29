@@ -9,7 +9,7 @@ import { deleteFromDrive } from "@/lib/deleteFromDrive"
 import { useAuth } from "@/context/AuthContext"
 import { getYoutubeEmbedUrl } from "@/lib/youtubeVideoId"
 
-type ItemRow = { id: string; type?: string; content?: any }
+type ItemRow = { id: string; type?: string; content?: any; ragIndexedAt?: unknown }
 
 export default function NotesViewer({ note }: { note: { id: string; title?: string } }) {
   const { user } = useAuth()

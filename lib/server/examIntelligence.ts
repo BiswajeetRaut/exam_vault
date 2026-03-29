@@ -111,16 +111,22 @@ function normalizeImageMimeType(value: string | null) {
   return "image/jpeg"
 }
 
-function toDataUrl(bytes: ArrayBuffer, mimeType: string) {
-  const base64 = Buffer.from(bytes).toString("base64")
+type BinaryInput = ArrayBuffer | Uint8Array
+
+function toNodeBuffer(bytes: BinaryInput) {
+  return bytes instanceof Uint8Array ? Buffer.from(bytes) : Buffer.from(bytes)
+}
+
+function toDataUrl(bytes: BinaryInput, mimeType: string) {
+  const base64 = toNodeBuffer(bytes).toString("base64")
   return `data:${mimeType};base64,${base64}`
 }
 
-function toUtf8Text(bytes: ArrayBuffer) {
-  return Buffer.from(bytes).toString("utf8")
+function toUtf8Text(bytes: BinaryInput) {
+  return toNodeBuffer(bytes).toString("utf8")
 }
 
-async function extractTextFromImageBytes(bytes: ArrayBuffer, fileType?: string | null) {
+async function extractTextFromImageBytes(bytes: BinaryInput, fileType?: string | null) {
   return callOpenAIResponses([
     {
       role: "user",
@@ -135,7 +141,7 @@ async function extractTextFromImageBytes(bytes: ArrayBuffer, fileType?: string |
   ])
 }
 
-export async function extractTextFromFileBytes(bytes: ArrayBuffer, fileType?: string) {
+export async function extractTextFromFileBytes(bytes: BinaryInput, fileType?: string) {
   const lowerType = String(fileType || "").toLowerCase()
   const isImage =
     lowerType.startsWith("image/") || /\.(png|jpg|jpeg|webp|gif)(\?|$)/i.test(lowerType)
