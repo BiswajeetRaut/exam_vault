@@ -18,7 +18,7 @@ Set these on your deployed app:
 
 ## 2) Create Cloud Scheduler job (recommended)
 
-Use Cloud Scheduler to call your deployed endpoint every hour.
+Use Cloud Scheduler to call your deployed endpoint every 12 hours.
 
 Replace values below:
 
@@ -31,7 +31,7 @@ Replace values below:
 gcloud scheduler jobs create http exam-reminders-hourly \
   --project=PROJECT_ID \
   --location=REGION \
-  --schedule="*/30 * * * *" \
+  --schedule="0 */12 * * *" \
   --uri="APP_BASE_URL/api/cron/exam-reminders" \
   --http-method=POST \
   --headers="Authorization=Bearer CRON_SECRET_VALUE"
@@ -43,7 +43,7 @@ To update an existing job:
 gcloud scheduler jobs update http exam-reminders-hourly \
   --project=PROJECT_ID \
   --location=REGION \
-  --schedule="*/30 * * * *" \
+  --schedule="0 */12 * * *" \
   --uri="APP_BASE_URL/api/cron/exam-reminders" \
   --http-method=POST \
   --headers="Authorization=Bearer CRON_SECRET_VALUE"
@@ -75,7 +75,7 @@ This repo now includes `vercel.json` with:
 ```json
 {
   "crons": [
-    { "path": "/api/cron/exam-reminders", "schedule": "*/30 * * * *" }
+    { "path": "/api/cron/exam-reminders", "schedule": "0 */12 * * *" }
   ]
 }
 ```
