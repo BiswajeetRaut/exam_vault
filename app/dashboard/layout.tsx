@@ -1,12 +1,15 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import type { ReactNode } from "react"
+import { auth } from "@/lib/firebase"
+import { signOut } from "firebase/auth"
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   const pathname = usePathname()
+  const router = useRouter()
 
   const navLink = (href: string, label: string) => {
     const isActive = pathname === href
@@ -29,6 +32,16 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         {navLink("/dashboard/quizzes", "Quizzes")}
         {navLink("/dashboard/personal", "Personal")}
         {navLink("/dashboard/exams", "Exams")}
+        <button
+          type="button"
+          className="nav-item nav-item-logout"
+          onClick={async () => {
+            await signOut(auth)
+            router.push("/login")
+          }}
+        >
+          Logout
+        </button>
       </aside>
 
       <main className="main-content">
