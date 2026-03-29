@@ -233,6 +233,15 @@ body {
   font-weight: 600;
 }
 
+.nav-item-logout {
+  width: 100%;
+  margin-top: 10px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  color: #b4233f;
+}
+
 /* —— Cards & surfaces —— */
 .card {
   background: var(--nv-surface);
