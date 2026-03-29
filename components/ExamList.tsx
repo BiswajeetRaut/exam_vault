@@ -5,7 +5,7 @@ import { auth, db } from "@/lib/firebase"
 import { collection, query, where, getDocs } from "firebase/firestore"
 import { useAuth } from "@/context/AuthContext"
 
-export default function ExamList({ onSelect }: any) {
+export default function ExamList({ onSelect, refreshTrigger }: any) {
 
   const { user } = useAuth()
   const [exams, setExams] = useState<any[]>([])
@@ -65,7 +65,7 @@ export default function ExamList({ onSelect }: any) {
 
   useEffect(() => {
     fetchExams()
-  }, [user])
+  }, [user, refreshTrigger])
 
   const runAuthPost = async (url: string, body: unknown) => {
     const token = await auth.currentUser?.getIdToken()
