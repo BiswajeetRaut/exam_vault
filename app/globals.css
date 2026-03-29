@@ -12,6 +12,8 @@
   --nv-accent: #0b6bcb;
   --nv-radius: 3px;
   --nv-shadow: 0 1px 2px rgba(15, 15, 15, 0.04);
+  --nv-shadow-soft: 0 10px 28px rgba(12, 22, 44, 0.08);
+  --nv-accent-soft: rgba(11, 107, 203, 0.12);
   --nv-font: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
     Helvetica, "Apple Color Emoji", Arial, sans-serif;
 }
@@ -28,7 +30,10 @@ html {
 
 body {
   min-height: 100%;
-  background: var(--nv-bg);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(80, 107, 255, 0.08), transparent 30%),
+    radial-gradient(circle at 100% 0%, rgba(0, 194, 255, 0.07), transparent 26%),
+    var(--nv-bg);
   font-family: var(--nv-font);
   color: var(--nv-text);
   font-size: 15px;
@@ -57,7 +62,8 @@ body {
 .sidebar {
   width: 240px;
   flex-shrink: 0;
-  background: var(--nv-surface);
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(8px);
   border-right: 1px solid var(--nv-border);
   padding: 16px 10px;
 }
@@ -74,9 +80,10 @@ body {
 
 .main-content {
   flex: 1;
-  background: var(--nv-bg);
+  background: transparent;
   min-height: 100vh;
   padding: 36px 48px 64px;
+  animation: fade-up 0.35s ease both;
 }
 
 @media (max-width: 768px) {
@@ -157,6 +164,7 @@ body {
   letter-spacing: -0.03em;
   margin-bottom: 24px;
   color: var(--nv-text);
+  animation: fade-up 0.4s ease both;
 }
 
 .section-title {
@@ -212,11 +220,12 @@ body {
   font-size: 14px;
   font-weight: 450;
   text-decoration: none;
-  transition: background 0.1s ease;
+  transition: background 0.16s ease, transform 0.16s ease;
 }
 
 .nav-item:hover {
   background: var(--nv-hover);
+  transform: translateX(2px);
 }
 
 .nav-item-active {
@@ -228,9 +237,10 @@ body {
 .card {
   background: var(--nv-surface);
   border: 1px solid var(--nv-border);
-  border-radius: var(--nv-radius);
-  box-shadow: var(--nv-shadow);
-  transition: background 0.12s ease, border-color 0.12s ease;
+  border-radius: 10px;
+  box-shadow: var(--nv-shadow-soft);
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .card-pad-3 {
@@ -251,6 +261,7 @@ body {
 
 .card-click:hover {
   background: var(--nv-hover);
+  transform: translateY(-2px);
 }
 
 .surface-bordered {
@@ -278,12 +289,15 @@ a.btn {
   font-family: inherit;
   background: var(--nv-surface);
   color: var(--nv-text);
-  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease,
+    transform 0.16s ease, box-shadow 0.16s ease;
   text-decoration: none;
 }
 
 .btn:hover {
   background: var(--nv-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(20, 30, 56, 0.1);
 }
 
 .btn:disabled {
@@ -453,8 +467,8 @@ a.btn {
 
 .input:focus {
   outline: none;
-  border-color: rgba(55, 53, 47, 0.25);
-  box-shadow: 0 0 0 2px rgba(55, 53, 47, 0.06);
+  border-color: rgba(43, 73, 255, 0.35);
+  box-shadow: 0 0 0 3px var(--nv-accent-soft);
 }
 
 .input-inline {
@@ -511,6 +525,29 @@ a.btn {
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
   margin-top: 24px;
+}
+
+/* —— Motion utilities —— */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-up {
+  animation: fade-up 0.35s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 
 @media (max-width: 960px) {
