@@ -1,6 +1,7 @@
 import { FieldValue } from "firebase-admin/firestore"
 import { getAdminDb } from "@/lib/server/firebaseAdmin"
 import { verifyBearerUid } from "@/lib/server/verifyRequestUser"
+import { formatReminderDate, sendReminderEmail } from "@/lib/server/reminderEmail"
 
 export const runtime = "nodejs"
 
@@ -54,7 +55,27 @@ export async function POST(request: Request) {
       { merge: true }
     )
 
-    return json({ ok: true, remindAt, daysBefore })
+    let setupEmailSent = false
+    const userSnap = await db.collection("users").doc(uid).get()
+    const toEmail = String((userSnap.data() as any)?.email || "")
+    if (toEmail) {
+      const dayLabel = daysBefore === 1 ? "1 day" : `${daysBefore} days`
+      try {
+        await sendReminderEmail({
+          to: toEmail,
+          subject: `Reminder set: ${exam.name || "Exam"} (${dayLabel} before)`,
+          html:
+            `<p>Hello,</p><p>Your reminder is now active for <b>${exam.name || "Exam"}</b>.</p>` +
+            `<p>Exam date: <b>${formatReminderDate(examDate)}</b><br/>` +
+            `Reminder trigger: <b>${formatReminderDate(remindAt)}</b> (${dayLabel} before)</p>`,
+        })
+        setupEmailSent = true
+      } catch (emailErr) {
+        console.error("reminder setup email:", emailErr)
+      }
+    }
+
+    return json({ ok: true, remindAt, daysBefore, setupEmailSent })
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Server error"
     if (msg === "UNAUTHORIZED") return json({ error: "Unauthorized" }, 401)

@@ -1,5 +1,6 @@
 import { FieldValue } from "firebase-admin/firestore"
 import { getAdminDb } from "@/lib/server/firebaseAdmin"
+import { formatReminderDate, sendReminderEmail } from "@/lib/server/reminderEmail"
 
 export const runtime = "nodejs"
 
@@ -21,33 +22,6 @@ function isAuthorizedCronRequest(request: Request) {
   if (url.searchParams.get("secret") === secret) return true
 
   return false
-}
-
-async function sendReminderEmail(input: { to: string; subject: string; html: string }) {
-  const apiKey = process.env.RESEND_API_KEY
-  const from = process.env.REMINDER_FROM_EMAIL
-  if (!apiKey || !from) {
-    throw new Error("RESEND_API_KEY and REMINDER_FROM_EMAIL are required")
-  }
-
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      from,
-      to: [input.to],
-      subject: input.subject,
-      html: input.html,
-    }),
-  })
-
-  if (!res.ok) {
-    const data = await res.json().catch(() => null)
-    throw new Error(data?.message || "Email send failed")
-  }
 }
 
 async function runReminderDispatch() {
@@ -79,13 +53,13 @@ async function runReminderDispatch() {
           ? Math.max(0, Math.floor(reminder.daysBefore))
           : 7
       const dayLabel = daysBefore === 1 ? "1 day" : `${daysBefore} days`
-      await sendReminderEmail({
-        to: toEmail,
-        subject: `Reminder: ${reminder.examName} is in ${dayLabel}`,
-        html: `<p>Hello,</p><p>Your exam <b>${reminder.examName}</b> is scheduled on <b>${new Date(
-          reminder.examDate?.toDate ? reminder.examDate.toDate() : reminder.examDate
-        ).toDateString()}</b>.</p><p>This reminder was set for <b>${dayLabel}</b> before the exam.</p>`,
-      })
+        await sendReminderEmail({
+          to: toEmail,
+          subject: `Reminder: ${reminder.examName} is in ${dayLabel}`,
+          html: `<p>Hello,</p><p>Your exam <b>${reminder.examName}</b> is scheduled on <b>${formatReminderDate(
+            reminder.examDate
+          )}</b>.</p><p>This reminder was set for <b>${dayLabel}</b> before the exam.</p>`,
+        })
 
       await doc.ref.set(
         {

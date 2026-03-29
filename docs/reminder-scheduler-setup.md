@@ -67,3 +67,28 @@ Expected JSON:
 - `401 Unauthorized`: `CRON_SECRET` mismatch
 - `500 ... RESEND_API_KEY ...`: missing email env vars
 - reminders not sent: check `exam_reminders` documents are `enabled=true`, `status=scheduled`, and `remindAt <= now`
+
+## 5) Vercel Cron option
+
+This repo now includes `vercel.json` with:
+
+```json
+{
+  "crons": [
+    { "path": "/api/cron/exam-reminders", "schedule": "*/30 * * * *" }
+  ]
+}
+```
+
+For Vercel:
+
+1. Set `CRON_SECRET`, `RESEND_API_KEY`, and `REMINDER_FROM_EMAIL` in Vercel project env vars.
+2. Deploy the project.
+3. Vercel Cron will call `/api/cron/exam-reminders` on the defined schedule.
+
+If you want to test manually:
+
+```bash
+curl -X POST "APP_BASE_URL/api/cron/exam-reminders" \
+  -H "Authorization: Bearer CRON_SECRET_VALUE"
+```
