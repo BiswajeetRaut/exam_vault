@@ -28,6 +28,21 @@ export default function FileUpload({ folderId, onUploadSuccess }: any) {
   const USER_LIMIT = 500 * 1024 * 1024
   const GLOBAL_LIMIT = 800 * 1024 * 1024
 
+  const getUploadErrorMessage = (err: unknown) => {
+    const message = err instanceof Error ? err.message : String(err)
+    const lower = message.toLowerCase()
+
+    if (lower.includes("failed to fetch")) {
+      return "Could not reach storage server. Check internet, Supabase URL/key, and storage CORS/policies."
+    }
+
+    if (lower.includes("row-level security")) {
+      return "Upload blocked by Supabase RLS policy. Allow inserts for your bucket."
+    }
+
+    return message
+  }
+
   const handleUpload = async () => {
 
     if (!user) return alert("User not logged in")
@@ -63,7 +78,10 @@ export default function FileUpload({ folderId, onUploadSuccess }: any) {
 
       const { error } = await supabase.storage
         .from("files")
-        .upload(filePath, file)
+        .upload(filePath, file, {
+          contentType: file.type || undefined,
+          upsert: false
+        })
 
       if (error) throw error
 
@@ -102,7 +120,7 @@ export default function FileUpload({ folderId, onUploadSuccess }: any) {
 
     } catch (err) {
       console.error(err)
-      alert("Upload failed")
+      alert(`Upload failed: ${getUploadErrorMessage(err)}`)
     }
 
     setLoading(false)
