@@ -16,16 +16,28 @@ export async function POST(request: Request) {
     if (!examId) return json({ error: "examId is required" }, 400)
 
     const db = getAdminDb()
-    const reminderId = `${uid}_${examId}_one_week_before`
+    const remindersSnap = await db
+      .collection("exam_reminders")
+      .where("userId", "==", uid)
+      .where("examId", "==", examId)
+      .where("enabled", "==", true)
+      .get()
 
-    await db.collection("exam_reminders").doc(reminderId).set(
-      {
-        enabled: false,
-        status: "cancelled",
-        updatedAt: FieldValue.serverTimestamp(),
-      },
-      { merge: true }
-    )
+    if (!remindersSnap.empty) {
+      const batch = db.batch()
+      for (const reminderDoc of remindersSnap.docs) {
+        batch.set(
+          reminderDoc.ref,
+          {
+            enabled: false,
+            status: "cancelled",
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        )
+      }
+      await batch.commit()
+    }
 
     return json({ ok: true })
   } catch (e: unknown) {

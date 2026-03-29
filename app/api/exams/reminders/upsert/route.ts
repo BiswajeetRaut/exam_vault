@@ -13,6 +13,8 @@ export async function POST(request: Request) {
     const uid = await verifyBearerUid(request)
     const body = await request.json().catch(() => null)
     const examId = typeof body?.examId === "string" ? body.examId : null
+    const allowedDays = new Set([1, 3, 7, 14])
+    const daysBefore = allowedDays.has(Number(body?.daysBefore)) ? Number(body.daysBefore) : 7
     if (!examId) return json({ error: "examId is required" }, 400)
 
     const db = getAdminDb()
@@ -29,15 +31,18 @@ export async function POST(request: Request) {
     }
 
     const remindAt = new Date(examDate)
-    remindAt.setDate(remindAt.getDate() - 7)
+    remindAt.setDate(remindAt.getDate() - daysBefore)
+    const now = new Date()
+    if (remindAt < now) remindAt.setTime(now.getTime() + 60 * 1000)
 
-    const reminderId = `${uid}_${examId}_one_week_before`
+    const reminderId = `${uid}_${examId}_${daysBefore}_days_before`
     await db.collection("exam_reminders").doc(reminderId).set(
       {
         userId: uid,
         examId,
         examName: exam.name || "Exam",
-        type: "one_week_before",
+        type: "days_before",
+        daysBefore,
         channel: "email",
         enabled: true,
         status: "scheduled",
@@ -49,7 +54,7 @@ export async function POST(request: Request) {
       { merge: true }
     )
 
-    return json({ ok: true, remindAt })
+    return json({ ok: true, remindAt, daysBefore })
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Server error"
     if (msg === "UNAUTHORIZED") return json({ error: "Unauthorized" }, 401)

@@ -65,12 +65,17 @@ export async function POST(request: Request) {
       if (!toEmail) continue
 
       try {
+        const daysBefore =
+          typeof reminder.daysBefore === "number" && Number.isFinite(reminder.daysBefore)
+            ? Math.max(0, Math.floor(reminder.daysBefore))
+            : 7
+        const dayLabel = daysBefore === 1 ? "1 day" : `${daysBefore} days`
         await sendReminderEmail({
           to: toEmail,
-          subject: `Reminder: ${reminder.examName} is in one week`,
+          subject: `Reminder: ${reminder.examName} is in ${dayLabel}`,
           html: `<p>Hello,</p><p>Your exam <b>${reminder.examName}</b> is scheduled on <b>${new Date(
             reminder.examDate?.toDate ? reminder.examDate.toDate() : reminder.examDate
-          ).toDateString()}</b>.</p>`,
+          ).toDateString()}</b>.</p><p>This reminder was set for <b>${dayLabel}</b> before the exam.</p>`,
         })
 
         await doc.ref.set(
