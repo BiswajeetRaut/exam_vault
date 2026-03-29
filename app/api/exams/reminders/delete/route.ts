@@ -52,7 +52,7 @@ export async function POST(request: Request) {
       await batch.commit()
 
       const userSnap = await db.collection("users").doc(uid).get()
-      const toEmail = String((userSnap.data() as any)?.email || "")
+      const toEmail = String((userSnap.data() as any)?.email || "").trim()
       if (toEmail) {
         try {
           await sendReminderEmail({

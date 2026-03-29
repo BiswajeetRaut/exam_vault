@@ -13,6 +13,8 @@ function getReminderMailConfig() {
 
 export async function sendReminderEmail(input: { to: string; subject: string; html: string }) {
   const { serviceId, templateId, publicKey, privateKey } = getReminderMailConfig()
+  const to = String(input.to || "").trim()
+  if (!to) return false
 
   const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
     method: "POST",
@@ -25,7 +27,7 @@ export async function sendReminderEmail(input: { to: string; subject: string; ht
       user_id: publicKey,
       accessToken: privateKey,
       template_params: {
-        to_email: input.to,
+        to_email: to,
         subject: input.subject,
         html_content: input.html,
       },
@@ -36,6 +38,8 @@ export async function sendReminderEmail(input: { to: string; subject: string; ht
     const text = await res.text().catch(() => "")
     throw new Error(text || "Email send failed")
   }
+
+  return true
 }
 
 export function formatReminderDate(value: any) {

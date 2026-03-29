@@ -57,7 +57,7 @@ export async function POST(request: Request) {
 
     let setupEmailSent = false
     const userSnap = await db.collection("users").doc(uid).get()
-    const toEmail = String((userSnap.data() as any)?.email || "")
+    const toEmail = String((userSnap.data() as any)?.email || "").trim()
     if (toEmail) {
       const dayLabel = daysBefore === 1 ? "1 day" : `${daysBefore} days`
       try {
