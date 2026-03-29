@@ -1,10 +1,11 @@
 "use client"
 
 import { auth, db } from "@/lib/firebase"
-import { GoogleAuthProvider, signInWithPopup } from "firebase/auth"
+import { GoogleAuthProvider, signInWithPopup, signInWithRedirect } from "firebase/auth"
 import { doc, setDoc, getDoc } from "firebase/firestore"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import { FirebaseError } from "firebase/app"
 
 export default function LoginPage() {
 
@@ -60,7 +61,22 @@ export default function LoginPage() {
 
     } catch (error) {
       console.error("Login error:", error)
-      alert("Login failed. Check console.")
+      if (error instanceof FirebaseError) {
+        if (error.code === "auth/popup-blocked" || error.code === "auth/popup-closed-by-user") {
+          await signInWithRedirect(auth, new GoogleAuthProvider())
+          return
+        }
+
+        if (error.code === "auth/unauthorized-domain") {
+          alert(
+            "Google sign-in blocked: add your deployed domain in Firebase Auth > Settings > Authorized domains."
+          )
+        } else {
+          alert(`Login failed: ${error.code}`)
+        }
+      } else {
+        alert("Login failed. Check console.")
+      }
     }
 
     setLoading(false)

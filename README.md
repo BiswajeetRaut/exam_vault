@@ -266,3 +266,12 @@ Open http://localhost:3000.
 - Build command: `npm run build`.
 - Vercel cron is configured in `vercel.json` for `/api/cron/exam-reminders`.
 
+### Firebase Google sign-in setup (important)
+
+If Google signup/login fails on deployed domain with CORS/blocked popup style errors:
+
+1. Firebase Console → **Authentication** → **Settings** → **Authorized domains**:
+   - add your production host (example: `your-app.vercel.app`)
+   - add any custom domain you use.
+2. Google Cloud Console → **APIs & Services** → **Credentials**:
+   - for your OAuth client, add the same origin(s) under authorized JavaScript origins.
