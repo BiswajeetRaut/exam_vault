@@ -84,9 +84,20 @@ export default function ExamFiles({ examId, refreshTrigger }: any) {
         data.error.includes("Could not reach file host from server")
 
       if (shouldRetryWithClientBytes) {
-        const fileRes = await fetch(file.fileUrl, { cache: "no-store" })
-        if (!fileRes.ok) throw new Error("Could not download exam file in browser")
-        const blob = await fileRes.blob()
+        let blob: Blob | null = null
+
+        if (file.path) {
+          const download = await supabase.storage.from("files").download(file.path)
+          if (download.error || !download.data) {
+            throw new Error("Could not download exam file from storage")
+          }
+          blob = download.data
+        } else {
+          const fileRes = await fetch(file.fileUrl, { cache: "no-store" })
+          if (!fileRes.ok) throw new Error("Could not download exam file in browser")
+          blob = await fileRes.blob()
+        }
+
         const fileDataBase64 = await blobToBase64(blob)
 
         res = await runExtract({
