@@ -1,32 +1,40 @@
 function getReminderMailConfig() {
-  const apiKey = process.env.RESEND_API_KEY
-  const from = process.env.REMINDER_FROM_EMAIL
-  if (!apiKey || !from) {
-    throw new Error("RESEND_API_KEY and REMINDER_FROM_EMAIL are required")
+  const serviceId = process.env.EMAILJS_SERVICE_ID
+  const templateId = process.env.EMAILJS_TEMPLATE_ID
+  const publicKey = process.env.EMAILJS_PUBLIC_KEY
+  const privateKey = process.env.EMAILJS_PRIVATE_KEY
+  if (!serviceId || !templateId || !publicKey || !privateKey) {
+    throw new Error(
+      "EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, EMAILJS_PUBLIC_KEY, and EMAILJS_PRIVATE_KEY are required"
+    )
   }
-  return { apiKey, from }
+  return { serviceId, templateId, publicKey, privateKey }
 }
 
 export async function sendReminderEmail(input: { to: string; subject: string; html: string }) {
-  const { apiKey, from } = getReminderMailConfig()
+  const { serviceId, templateId, publicKey, privateKey } = getReminderMailConfig()
 
-  const res = await fetch("https://api.resend.com/emails", {
+  const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      from,
-      to: [input.to],
-      subject: input.subject,
-      html: input.html,
+      service_id: serviceId,
+      template_id: templateId,
+      user_id: publicKey,
+      accessToken: privateKey,
+      template_params: {
+        to_email: input.to,
+        subject: input.subject,
+        html_content: input.html,
+      },
     }),
   })
 
   if (!res.ok) {
-    const data = await res.json().catch(() => null)
-    throw new Error(data?.message || "Email send failed")
+    const text = await res.text().catch(() => "")
+    throw new Error(text || "Email send failed")
   }
 }
 

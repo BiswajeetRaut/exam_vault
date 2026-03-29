@@ -13,8 +13,10 @@ This app sends reminder emails via:
 Set these on your deployed app:
 
 - `CRON_SECRET` = long random secret
-- `RESEND_API_KEY` = your Resend API key
-- `REMINDER_FROM_EMAIL` = verified sender email in Resend
+- `EMAILJS_SERVICE_ID` = EmailJS service ID
+- `EMAILJS_TEMPLATE_ID` = EmailJS template ID
+- `EMAILJS_PUBLIC_KEY` = EmailJS public key
+- `EMAILJS_PRIVATE_KEY` = EmailJS private key
 
 ## 2) Create Cloud Scheduler job (recommended)
 
@@ -65,7 +67,7 @@ Expected JSON:
 ## 4) Quick troubleshooting
 
 - `401 Unauthorized`: `CRON_SECRET` mismatch
-- `500 ... RESEND_API_KEY ...`: missing email env vars
+- `500 ... EMAILJS_ ...`: missing EmailJS env vars
 - reminders not sent: check `exam_reminders` documents are `enabled=true`, `status=scheduled`, and `remindAt <= now`
 
 ## 5) Vercel Cron option
@@ -82,7 +84,7 @@ This repo now includes `vercel.json` with:
 
 For Vercel:
 
-1. Set `CRON_SECRET`, `RESEND_API_KEY`, and `REMINDER_FROM_EMAIL` in Vercel project env vars.
+1. Set `CRON_SECRET`, `EMAILJS_SERVICE_ID`, `EMAILJS_TEMPLATE_ID`, `EMAILJS_PUBLIC_KEY`, and `EMAILJS_PRIVATE_KEY` in Vercel project env vars.
 2. Deploy the project.
 3. Vercel Cron will call `/api/cron/exam-reminders` on the defined schedule.
 
