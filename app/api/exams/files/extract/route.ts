@@ -1,7 +1,11 @@
 import { FieldValue } from "firebase-admin/firestore"
 import { getAdminDb } from "@/lib/server/firebaseAdmin"
 import { verifyBearerUid } from "@/lib/server/verifyRequestUser"
-import { extractTextFromImageUrl, parseExamDataFromText } from "@/lib/server/examIntelligence"
+import {
+  extractTextFromFileBytes,
+  extractTextFromFileUrl,
+  parseExamDataFromText,
+} from "@/lib/server/examIntelligence"
 
 export const runtime = "nodejs"
 
@@ -10,17 +14,20 @@ function json(data: unknown, status = 200) {
 }
 
 export async function POST(request: Request) {
+  let fileRef: any = null
   try {
     const uid = await verifyBearerUid(request)
     const body = await request.json().catch(() => null)
     const examFileId = typeof body?.examFileId === "string" ? body.examFileId : null
+    const fileDataBase64 = typeof body?.fileDataBase64 === "string" ? body.fileDataBase64 : null
+    const clientFileType = typeof body?.fileType === "string" ? body.fileType : null
 
     if (!examFileId) {
       return json({ error: "examFileId is required" }, 400)
     }
 
     const db = getAdminDb()
-    const fileRef = db.collection("exam_files").doc(examFileId)
+    fileRef = db.collection("exam_files").doc(examFileId)
     const fileSnap = await fileRef.get()
     if (!fileSnap.exists) return json({ error: "Exam file not found" }, 404)
 
@@ -30,18 +37,20 @@ export async function POST(request: Request) {
     const fileUrl = String(file.fileUrl || "")
     if (!fileUrl) return json({ error: "Exam file URL is missing" }, 400)
 
-    let extractedText = ""
+    await fileRef.set(
+      {
+        ocrStatus: "processing",
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    )
 
-    if (/\.(png|jpg|jpeg|webp)$/i.test(fileUrl)) {
-      extractedText = await extractTextFromImageUrl(fileUrl)
-    } else {
-      const res = await fetch(fileUrl)
-      if (!res.ok) {
-        return json({ error: "Could not download exam file" }, 422)
-      }
-      const text = await res.text()
-      extractedText = text
-    }
+    const extractedText = fileDataBase64
+      ? await extractTextFromFileBytes(
+          Buffer.from(fileDataBase64, "base64"),
+          clientFileType || String(file.fileType || "")
+        )
+      : await extractTextFromFileUrl(fileUrl, String(file.fileType || ""))
 
     if (!extractedText || extractedText.trim().length < 20) {
       return json({ error: "Could not extract enough text from file" }, 422)
@@ -85,12 +94,27 @@ export async function POST(request: Request) {
       })
     }
 
-    return json({ ok: true, extracted: parsed })
+    return json({ ok: true, extracted: parsed, extractedChars: extractedText.length })
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Server error"
+    if (fileRef) {
+      await fileRef
+        .set(
+          {
+            ocrStatus: "failed",
+            ocrError: msg,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        )
+        .catch(() => null)
+    }
     if (msg === "UNAUTHORIZED") return json({ error: "Unauthorized" }, 401)
     if (msg.includes("OPENAI_API_KEY") || msg.includes("EMBEDDING_API_KEY")) {
       return json({ error: "Server misconfiguration: OpenAI key" }, 503)
+    }
+    if (msg.includes("Could not reach file host from server")) {
+      return json({ error: msg }, 503)
     }
     console.error("exam file extract:", e)
     return json({ error: msg }, 500)

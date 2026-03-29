@@ -5,6 +5,7 @@ import CreateExam from "@/components/CreateExam"
 import ExamList from "@/components/ExamList"
 import ExamUpload from "@/components/ExamUpload"
 import ExamFiles from "@/components/ExamFiles"
+import ExamDetailsForm from "@/components/ExamDetailsForm"
 
 export default function ExamsPage() {
 
@@ -17,7 +18,7 @@ export default function ExamsPage() {
 
       <CreateExam refresh={() => window.location.reload()} />
 
-      <ExamList onSelect={setSelectedExam} />
+      <ExamList onSelect={setSelectedExam} refreshTrigger={refresh} />
 
       {selectedExam && (
         <div className="mt-10 flex-col-stack-lg">
@@ -28,6 +29,23 @@ export default function ExamsPage() {
           <ExamUpload
             examId={selectedExam.id}
             onUploadSuccess={() => setRefresh(prev => prev + 1)}
+          />
+          <ExamDetailsForm
+            exam={selectedExam}
+            onSaved={(updates: any) => {
+              setSelectedExam((prev: any) =>
+                prev
+                  ? {
+                      ...prev,
+                      ...updates,
+                      portalPasswordCipher: updates?.hasPassword
+                        ? prev?.portalPasswordCipher || "__saved__"
+                        : prev?.portalPasswordCipher,
+                    }
+                  : prev
+              )
+              setRefresh(prev => prev + 1)
+            }}
           />
           <p className="text-sm">
             Tip: select <strong>Admit Card</strong> document type before uploading admit card files.
