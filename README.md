@@ -275,3 +275,10 @@ If Google signup/login fails on deployed domain with CORS/blocked popup style er
    - add any custom domain you use.
 2. Google Cloud Console → **APIs & Services** → **Credentials**:
    - for your OAuth client, add the same origin(s) under authorized JavaScript origins.
+### Deployment requirements for this repo
+
+- Node.js `>=20.9.0` (configured in `package.json` via `engines.node`).
+- Use `npm install`/`npm ci` with the checked-in `package-lock.json`.
+- If your Vercel project was pinned to an older Node.js runtime, update it to Node 20+ in **Project Settings → General → Node.js Version**.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
