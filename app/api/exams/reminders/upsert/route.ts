@@ -1,5 +1,5 @@
 import { FieldValue } from "firebase-admin/firestore"
-import { getAdminDb } from "@/lib/server/firebaseAdmin"
+import { getAdminAuth, getAdminDb } from "@/lib/server/firebaseAdmin"
 import { verifyBearerUid } from "@/lib/server/verifyRequestUser"
 import { formatReminderDate, sendReminderEmail } from "@/lib/server/reminderEmail"
 
@@ -57,7 +57,9 @@ export async function POST(request: Request) {
 
     let setupEmailSent = false
     const userSnap = await db.collection("users").doc(uid).get()
-    const toEmail = String((userSnap.data() as any)?.email || "")
+    const profileEmail = String((userSnap.data() as any)?.email || "").trim()
+    const authEmail = (await getAdminAuth().getUser(uid).catch(() => null))?.email?.trim() || ""
+    const toEmail = profileEmail || authEmail
     if (toEmail) {
       const dayLabel = daysBefore === 1 ? "1 day" : `${daysBefore} days`
       try {
