@@ -104,7 +104,7 @@ export default function QuizzesPage() {
     let current: string | null | undefined = folderId
     let guard = 0
     while (current && guard < 20) {
-      const folder = folderById[current]
+      const folder: FolderRow | undefined = folderById[current]
       if (!folder) break
       parts.unshift(folder.name || "Untitled folder")
       current = folder.parentId
