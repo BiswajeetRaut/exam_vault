@@ -9,7 +9,7 @@ import NotesViewer from "@/components/NotesViewer"
 
 type NoteFolder = {
   id: string
-  name: string
+  name?: string
 }
 
 type NoteItem = {

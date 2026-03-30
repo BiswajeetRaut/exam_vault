@@ -21,6 +21,19 @@ type ExamRecord = {
   examDate?: Date | string | { toDate?: () => Date } | null
 }
 
+const resolveExamDate = (value: ExamRecord["examDate"]): Date | null => {
+  if (!value) return null
+  if (value instanceof Date) return value
+  if (typeof value === "string") {
+    const parsed = new Date(value)
+    return Number.isNaN(parsed.getTime()) ? null : parsed
+  }
+  if (typeof value === "object" && "toDate" in value && typeof value.toDate === "function") {
+    return value.toDate()
+  }
+  return null
+}
+
 export default function Dashboard() {
   const { user, loading } = useAuth()
   const router = useRouter()
@@ -60,7 +73,7 @@ export default function Dashboard() {
         appliedExams: exams.filter((exam) => exam.status === "applied").length,
         admitCards: exams.filter((exam) => exam.status === "admit_card_received").length,
         upcomingExams: exams.filter((exam) => {
-          const d = exam.examDate?.toDate ? exam.examDate.toDate() : exam.examDate ? new Date(exam.examDate) : null
+          const d = resolveExamDate(exam.examDate)
           if (!d || Number.isNaN(d.getTime())) return false
           return d >= now && d <= next30Days
         }).length,
