@@ -1,19 +1,19 @@
-/* —— Notion-adjacent tokens (plain CSS) —— */
+/* —— Vercel-inspired dark tokens —— */
 :root {
-  --nv-bg: #f7f6f3;
-  --nv-surface: #ffffff;
-  --nv-text: #37352f;
-  --nv-text-muted: rgba(55, 53, 47, 0.65);
-  --nv-text-faint: rgba(55, 53, 47, 0.45);
-  --nv-border: rgba(55, 53, 47, 0.09);
-  --nv-hover: rgba(55, 53, 47, 0.06);
-  --nv-active: rgba(55, 53, 47, 0.1);
-  --nv-link: #37352f;
-  --nv-accent: #0b6bcb;
-  --nv-radius: 3px;
-  --nv-shadow: 0 1px 2px rgba(15, 15, 15, 0.04);
-  --nv-shadow-soft: 0 10px 28px rgba(12, 22, 44, 0.08);
-  --nv-accent-soft: rgba(11, 107, 203, 0.12);
+  --nv-bg: #07090f;
+  --nv-surface: rgba(15, 18, 29, 0.9);
+  --nv-text: #e7ecff;
+  --nv-text-muted: rgba(231, 236, 255, 0.72);
+  --nv-text-faint: rgba(231, 236, 255, 0.54);
+  --nv-border: rgba(140, 163, 255, 0.2);
+  --nv-hover: rgba(108, 130, 255, 0.13);
+  --nv-active: rgba(108, 130, 255, 0.2);
+  --nv-link: #cad7ff;
+  --nv-accent: #6d83ff;
+  --nv-radius: 10px;
+  --nv-shadow: 0 1px 2px rgba(2, 4, 10, 0.6);
+  --nv-shadow-soft: 0 16px 38px rgba(2, 4, 14, 0.55);
+  --nv-accent-soft: rgba(109, 131, 255, 0.2);
   --nv-font: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
     Helvetica, "Apple Color Emoji", Arial, sans-serif;
 }
@@ -31,8 +31,9 @@ html {
 body {
   min-height: 100%;
   background:
-    radial-gradient(circle at 0% 0%, rgba(80, 107, 255, 0.08), transparent 30%),
-    radial-gradient(circle at 100% 0%, rgba(0, 194, 255, 0.07), transparent 26%),
+    radial-gradient(circle at 0% 0%, rgba(99, 102, 241, 0.2), transparent 34%),
+    radial-gradient(circle at 100% 0%, rgba(6, 182, 212, 0.16), transparent 28%),
+    radial-gradient(circle at 50% 100%, rgba(124, 58, 237, 0.11), transparent 30%),
     var(--nv-bg);
   font-family: var(--nv-font);
   color: var(--nv-text);
@@ -62,8 +63,8 @@ body {
 .sidebar {
   width: 240px;
   flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(8px);
+  background: rgba(8, 11, 19, 0.82);
+  backdrop-filter: blur(10px);
   border-right: 1px solid var(--nv-border);
   padding: 16px 10px;
 }
@@ -120,7 +121,10 @@ body {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: var(--nv-bg);
+  background:
+    radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.24), transparent 35%),
+    radial-gradient(circle at 80% 10%, rgba(6, 182, 212, 0.18), transparent 26%),
+    var(--nv-bg);
 }
 
 .login-panel {
@@ -316,21 +320,21 @@ a.btn {
 }
 
 .btn-primary {
-  background: var(--nv-text);
-  color: #fff;
-  border-color: var(--nv-text);
+  background: linear-gradient(135deg, #5f73ff 0%, #4fd8ff 100%);
+  color: #ffffff;
+  border-color: rgba(117, 155, 255, 0.5);
 }
 
 .btn-primary:hover {
-  background: #1a1917;
-  border-color: #1a1917;
+  background: linear-gradient(135deg, #6f84ff 0%, #62ddff 100%);
+  border-color: rgba(117, 155, 255, 0.62);
 }
 
 .btn-dark {
   width: 100%;
-  background: var(--nv-text);
+  background: linear-gradient(135deg, #5f73ff 0%, #4fd8ff 100%);
   color: #fff;
-  border-color: var(--nv-text);
+  border-color: rgba(117, 155, 255, 0.5);
   padding: 10px 16px;
 }
 
@@ -476,7 +480,7 @@ a.btn {
 
 .input:focus {
   outline: none;
-  border-color: rgba(43, 73, 255, 0.35);
+  border-color: rgba(109, 131, 255, 0.6);
   box-shadow: 0 0 0 3px var(--nv-accent-soft);
 }
 
@@ -747,15 +751,17 @@ a.btn {
 }
 
 .dashboard-hero {
-  background: linear-gradient(135deg, #ffffff 0%, #f3f8ff 100%);
-  border-color: rgba(11, 107, 203, 0.18);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(99, 102, 241, 0.26), transparent 38%),
+    linear-gradient(145deg, rgba(12, 16, 30, 0.96) 0%, rgba(11, 16, 28, 0.9) 100%);
+  border-color: rgba(134, 156, 255, 0.3);
 }
 
 .dashboard-kicker {
   font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(11, 107, 203, 0.9);
+  color: rgba(121, 189, 255, 0.95);
   font-weight: 600;
   margin-bottom: 8px;
 }
@@ -787,6 +793,56 @@ a.btn {
 .dashboard-list {
   margin-left: 18px;
   color: var(--nv-text-muted);
+}
+
+.search-wrap {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  margin-bottom: 16px;
+  backdrop-filter: blur(6px);
+}
+
+.notes-search-input {
+  margin-bottom: 0;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.onboarding-panel {
+  border-color: rgba(120, 144, 255, 0.34);
+  background:
+    radial-gradient(circle at 85% 0%, rgba(6, 182, 212, 0.16), transparent 34%),
+    rgba(13, 18, 33, 0.92);
+}
+
+.onboarding-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.onboarding-step {
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--nv-border);
+  border-radius: 10px;
+  padding: 10px;
+  background: rgba(11, 15, 27, 0.9);
+}
+
+.onboarding-step span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #6678ff 0%, #4fd8ff 100%);
+  color: #fff;
 }
 
 @media (max-width: 1120px) {

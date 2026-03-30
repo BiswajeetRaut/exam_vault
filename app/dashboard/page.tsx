@@ -6,6 +6,7 @@ import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import { collection, getDocs, query, where } from "firebase/firestore"
 import { db } from "@/lib/firebase"
+import { motion } from "framer-motion"
 
 type DashboardStats = {
   totalExams: number
@@ -13,6 +14,24 @@ type DashboardStats = {
   admitCards: number
   upcomingExams: number
   totalFiles: number
+}
+
+type ExamRecord = {
+  status?: string
+  examDate?: Date | string | { toDate?: () => Date } | null
+}
+
+const resolveExamDate = (value: ExamRecord["examDate"]): Date | null => {
+  if (!value) return null
+  if (value instanceof Date) return value
+  if (typeof value === "string") {
+    const parsed = new Date(value)
+    return Number.isNaN(parsed.getTime()) ? null : parsed
+  }
+  if (typeof value === "object" && "toDate" in value && typeof value.toDate === "function") {
+    return value.toDate()
+  }
+  return null
 }
 
 export default function Dashboard() {
@@ -26,6 +45,7 @@ export default function Dashboard() {
     totalFiles: 0,
   })
   const [statsLoading, setStatsLoading] = useState(true)
+  const [showGuide, setShowGuide] = useState(true)
 
   useEffect(() => {
     if (!loading && !user) {
@@ -44,7 +64,7 @@ export default function Dashboard() {
       )
 
       const now = new Date()
-      const exams = examsSnap.docs.map((doc) => doc.data() as any)
+      const exams = examsSnap.docs.map((doc) => doc.data() as ExamRecord)
       const next30Days = new Date(now)
       next30Days.setDate(next30Days.getDate() + 30)
 
@@ -53,7 +73,7 @@ export default function Dashboard() {
         appliedExams: exams.filter((exam) => exam.status === "applied").length,
         admitCards: exams.filter((exam) => exam.status === "admit_card_received").length,
         upcomingExams: exams.filter((exam) => {
-          const d = exam.examDate?.toDate ? exam.examDate.toDate() : exam.examDate ? new Date(exam.examDate) : null
+          const d = resolveExamDate(exam.examDate)
           if (!d || Number.isNaN(d.getTime())) return false
           return d >= now && d <= next30Days
         }).length,
@@ -88,7 +108,12 @@ export default function Dashboard() {
 
   return (
     <div className="page-wide dashboard-overview">
-      <div className="dashboard-hero card card-pad-5">
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: "easeOut" }}
+        className="dashboard-hero card card-pad-5"
+      >
         <p className="dashboard-kicker">Exam Vault Dashboard</p>
         <h1 className="page-title dashboard-hero-title">{welcomeMessage}</h1>
         <p className="text-muted">
@@ -100,7 +125,50 @@ export default function Dashboard() {
           <Link href="/dashboard/notes" className="btn">Open Notes</Link>
           <Link href="/dashboard/quizzes" className="btn">Take Quiz</Link>
         </div>
-      </div>
+      </motion.div>
+
+      {showGuide && (
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15, duration: 0.45 }}
+          className="card card-pad-4 mt-4 onboarding-panel"
+        >
+          <div className="flex-between">
+            <h2 className="section-title">Quick start guide</h2>
+            <button type="button" className="btn" onClick={() => setShowGuide(false)}>
+              Dismiss
+            </button>
+          </div>
+          <p className="text-sm mt-2">Follow these steps to set up your workspace in order.</p>
+          <div className="onboarding-grid mt-3">
+            <motion.div className="onboarding-step" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}>
+              <span>1</span>
+              <div>
+                <p className="font-semibold">Add notes</p>
+                <p className="text-xs">Create your first note to start building revision material.</p>
+              </div>
+              <Link href="/dashboard/notes" className="btn">Open Notes</Link>
+            </motion.div>
+            <motion.div className="onboarding-step" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.35 }}>
+              <span>2</span>
+              <div>
+                <p className="font-semibold">Upload personal docs</p>
+                <p className="text-xs">Store certificates, IDs, and study files in one place.</p>
+              </div>
+              <Link href="/dashboard/personal" className="btn">Go Personal</Link>
+            </motion.div>
+            <motion.div className="onboarding-step" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.5 }}>
+              <span>3</span>
+              <div>
+                <p className="font-semibold">Create folders</p>
+                <p className="text-xs">Organize notes and files by exam or topic.</p>
+              </div>
+              <Link href="/dashboard/personal" className="btn">Create Folder</Link>
+            </motion.div>
+          </div>
+        </motion.div>
+      )}
 
       <div className="dashboard-stat-grid mt-6">
         <div className="card card-pad-4">

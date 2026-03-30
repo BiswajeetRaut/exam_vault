@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { db } from "@/lib/firebase"
 import {
   collection,
@@ -10,53 +10,87 @@ import {
 } from "firebase/firestore"
 import { useAuth } from "@/context/AuthContext"
 
-export default function NotesExplorer({ currentFolder, onOpenFolder, onOpenNote }: any) {
+type NoteFolder = {
+  id: string
+  name?: string
+}
+
+type NoteItem = {
+  id: string
+  title?: string
+  content?: string
+  text?: string
+}
+
+type NotesExplorerProps = {
+  currentFolder: string | null
+  searchQuery: string
+  onOpenFolder: (folder: NoteFolder) => void
+  onOpenNote: (note: NoteItem) => void
+}
+
+export default function NotesExplorer({ currentFolder, searchQuery, onOpenFolder, onOpenNote }: NotesExplorerProps) {
 
   const { user } = useAuth()
-  const [folders, setFolders] = useState<any[]>([])
-  const [notes, setNotes] = useState<any[]>([])
-
-  const fetchData = async () => {
-    if (!user) {
-      setFolders([])
-      setNotes([])
-      return
-    }
-
-    const folderQuery = query(
-      collection(db, "note_folders"),
-      where("parentId", "==", currentFolder || null),
-      where("userId", "==", user.uid)
-    )
-
-    const folderSnap = await getDocs(folderQuery)
-
-    setFolders(folderSnap.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })))
-
-    const notesQuery = query(
-      collection(db, "notes"),
-      where("folderId", "==", currentFolder || null),
-      where("userId", "==", user.uid)
-    )
-
-    const notesSnap = await getDocs(notesQuery)
-
-    setNotes(notesSnap.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })))
-  }
+  const [folders, setFolders] = useState<NoteFolder[]>([])
+  const [notes, setNotes] = useState<NoteItem[]>([])
 
   useEffect(() => {
+    let ignore = false
+
+    const fetchData = async () => {
+      if (!user) {
+        if (!ignore) {
+          setFolders([])
+          setNotes([])
+        }
+        return
+      }
+
+      const folderQuery = query(
+        collection(db, "note_folders"),
+        where("parentId", "==", currentFolder || null),
+        where("userId", "==", user.uid)
+      )
+      const notesQuery = query(
+        collection(db, "notes"),
+        where("folderId", "==", currentFolder || null),
+        where("userId", "==", user.uid)
+      )
+
+      const [folderSnap, notesSnap] = await Promise.all([getDocs(folderQuery), getDocs(notesQuery)])
+
+      if (ignore) return
+      setFolders(folderSnap.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })))
+      setNotes(notesSnap.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })))
+    }
+
     fetchData()
+    return () => {
+      ignore = true
+    }
   }, [currentFolder, user])
+
+  const normalizedQuery = (searchQuery || "").trim().toLowerCase()
+  const visibleFolders = useMemo(() => folders.filter((folder) =>
+    !normalizedQuery || `${folder.name || ""}`.toLowerCase().includes(normalizedQuery)
+  ), [folders, normalizedQuery])
+  const visibleNotes = useMemo(() => notes.filter((note) => {
+    if (!normalizedQuery) return true
+    const title = `${note.title || ""}`.toLowerCase()
+    const content = `${note.content || note.text || ""}`.toLowerCase()
+    return title.includes(normalizedQuery) || content.includes(normalizedQuery)
+  }), [notes, normalizedQuery])
 
   return (
     <div className="flex-col-stack-sm mt-4">
-      {folders.map(folder => (
+      {visibleFolders.map(folder => (
         <div
           key={folder.id}
           onClick={() => onOpenFolder(folder)}
@@ -66,7 +100,7 @@ export default function NotesExplorer({ currentFolder, onOpenFolder, onOpenNote 
         </div>
       ))}
 
-      {notes.map(note => (
+      {visibleNotes.map(note => (
         <div
           key={note.id}
           onClick={() => onOpenNote(note)}
@@ -75,6 +109,12 @@ export default function NotesExplorer({ currentFolder, onOpenFolder, onOpenNote 
           {note.title}
         </div>
       ))}
+
+      {!visibleFolders.length && !visibleNotes.length && (
+        <div className="card card-pad-3">
+          No notes or folders match your search.
+        </div>
+      )}
     </div>
   )
 }
