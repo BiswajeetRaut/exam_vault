@@ -547,3 +547,4 @@ If Google signup/login fails on deployed domain with CORS/blocked popup style er
    - add any custom domain you use.
 2. Google Cloud Console → **APIs & Services** → **Credentials**:
    - for your OAuth client, add the same origin(s) under authorized JavaScript origins.
+
